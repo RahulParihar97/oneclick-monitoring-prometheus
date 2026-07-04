@@ -126,6 +126,15 @@ pipeline {
                 }
             }
         }
+stage('Generate SSH Config') {
+    steps {
+        dir('terraform') {
+            sh '''
+                terraform output ssh_config > generated/ssh_config
+            '''
+        }
+    }
+}
 
         stage('Wait for SSH') {
             when { expression { params.ACTION == 'APPLY' } }
