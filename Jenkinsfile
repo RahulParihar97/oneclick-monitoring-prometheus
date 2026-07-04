@@ -43,7 +43,24 @@ pipeline {
         }
     }
 }
-
+        stage('Terraform Format Check') {
+    steps {
+        dir('terraform') {
+            sh '''
+                terraform fmt -check -recursive
+            '''
+        }
+    }
+}
+stage('Terraform Validate') {
+    steps {
+        dir('terraform') {
+            sh '''
+                terraform validate
+            '''
+        }
+    }
+}
         stage('Show Parameters') {
             steps {
                 sh """
