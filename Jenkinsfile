@@ -210,60 +210,88 @@ pipeline {
                 }
             }
         }
-        stage('Access Information') {
 
-    when {
-        expression {
-            params.ACTION == 'APPLY'
-        }
-    }
+        stage('Deployment Summary') {
+            when { expression { params.ACTION == 'APPLY' } }
+            steps {
+                dir('terraform') {
+                    script {
+                        def bastion = sh(script: 'terraform output -raw bastion_public_ip', returnStdout: true).trim()
+                        def monitoring = sh(script: 'terraform output -raw monitoring_private_ip', returnStdout: true).trim()
+                        def app1 = sh(script: 'terraform output -raw app_server_1_private_ip', returnStdout: true).trim()
+                        def app2 = sh(script: 'terraform output -raw app_server_2_private_ip', returnStdout: true).trim()
 
-    steps {
+                        sh """
+cat <<EOF
 
-        dir('terraform') {
+################################################################################
+#                                                                              #
+#                 🚀 ONE-CLICK MONITORING DEPLOYMENT SUCCESS 🚀                #
+#                                                                              #
+################################################################################
 
-            script {
+===============================================================================
+                           DEPLOYMENT STATUS
+===============================================================================
 
-                def bastion = sh(
-                    script: "terraform output -raw bastion_public_ip",
-                    returnStdout: true
-                ).trim()
+✔ Terraform Infrastructure      : SUCCESS
+✔ Ansible Configuration         : SUCCESS
+✔ Prometheus                    : DEPLOYED
+✔ Grafana                       : DEPLOYED
+✔ Node Exporter                 : DEPLOYED
 
-                def monitoring = sh(
-                    script: "terraform output -raw monitoring_private_ip",
-                    returnStdout: true
-                ).trim()
+===============================================================================
+                         AWS INFRASTRUCTURE DETAILS
+===============================================================================
 
-                echo """
-========================================================
+Bastion Server
+---------------
+Public IP        : ${bastion}
 
-Infrastructure deployed successfully.
+Monitoring Server
+-----------------
+Private IP       : ${monitoring}
 
-Run this command from your LOCAL machine:
+Application Server 1
+--------------------
+Private IP       : ${app1}
 
-ssh -i ~/oneclick-monitoring-prometheus/ansible/ansible-demo.pem \
-    -J ubuntu@${bastion} \
-    -L 9090:localhost:9090 \
-    -L 3000:localhost:3000 \
-    ubuntu@${monitoring}
+Application Server 2
+--------------------
+Private IP       : ${app2}
 
-Then open:
+===============================================================================
+                           ACCESS YOUR DASHBOARDS
+===============================================================================
 
-Prometheus:
-http://localhost:9090
+Grafana
+--------
+http://${bastion}/
 
-Grafana:
-http://localhost:3000
+Prometheus
+----------
+http://${bastion}/prometheus
 
-========================================================
+===============================================================================
+                         DEPLOYMENT INFORMATION
+===============================================================================
+
+Repository        : oneclick-monitoring-prometheus
+Cloud Provider    : AWS
+Provisioning      : Terraform
+Configuration     : Ansible
+CI/CD             : Jenkins
+Monitoring Stack  : Prometheus + Grafana + Node Exporter
+
+===============================================================================
+                       🎉 DEPLOYMENT COMPLETED SUCCESSFULLY 🎉
+===============================================================================
+
+EOF
 """
-
+                    }
+                }
             }
-
         }
-
-    }
-
-}
     }
 }
