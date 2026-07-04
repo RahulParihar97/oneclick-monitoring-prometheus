@@ -74,6 +74,62 @@ stage('Terraform Validate') {
         }
     }
 }
+stage('Archive Plan') {
+    when {
+        expression { params.ACTION == 'APPLY' }
+    }
+
+    steps {
+        archiveArtifacts artifacts: 'terraform/tfplan'
+    }
+}
+stage('Approval') {
+
+    when {
+        expression {
+            params.ACTION == 'APPLY' && !params.AUTO_APPROVE
+        }
+    }
+
+    steps {
+        input message: 'Proceed with Terraform Apply?'
+    }
+}
+stage('Terraform Apply') {
+
+    when {
+        expression {
+            params.ACTION == 'APPLY'
+        }
+    }
+
+    steps {
+
+        dir('terraform') {
+
+            script {
+
+                if (params.AUTO_APPROVE) {
+
+                    sh '''
+                        terraform apply -auto-approve tfplan
+                    '''
+
+                } else {
+
+                    sh '''
+                        terraform apply tfplan
+                    '''
+
+                }
+
+            }
+
+        }
+
+    }
+
+}        
         stage('Show Parameters') {
             steps {
                 sh """
