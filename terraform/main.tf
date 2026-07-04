@@ -210,19 +210,14 @@ module "ec2" {
 }
 resource "local_file" "ssh_config" {
 
-  filename = "/home/rahul/.ssh/config"
+  filename = "${path.module}/generated/ssh_config"
 
   content = templatefile("${path.module}/templates/ssh_config.tpl", {
 
-    bastion_ip = module.ec2.public_ips["bastion-server"]
-
-    app1_private_ip = module.ec2.private_ips["app-server-1"]
-
-    app2_private_ip = module.ec2.private_ips["app-server-2"]
-
+    bastion_ip            = module.ec2.public_ips["bastion-server"]
+    app1_private_ip       = module.ec2.private_ips["app-server-1"]
+    app2_private_ip       = module.ec2.private_ips["app-server-2"]
     monitoring_private_ip = module.ec2.private_ips["monitoring-server"]
-
-    pem_path = "/home/rahul/roles-project/ansible-demo.pem"
 
   })
 
