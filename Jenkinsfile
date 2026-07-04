@@ -210,5 +210,60 @@ pipeline {
                 }
             }
         }
+        stage('Access Information') {
+
+    when {
+        expression {
+            params.ACTION == 'APPLY'
+        }
+    }
+
+    steps {
+
+        dir('terraform') {
+
+            script {
+
+                def bastion = sh(
+                    script: "terraform output -raw bastion_public_ip",
+                    returnStdout: true
+                ).trim()
+
+                def monitoring = sh(
+                    script: "terraform output -raw monitoring_private_ip",
+                    returnStdout: true
+                ).trim()
+
+                echo """
+========================================================
+
+Infrastructure deployed successfully.
+
+Run this command from your LOCAL machine:
+
+ssh -i ~/oneclick-monitoring-prometheus/ansible/ansible-demo.pem \
+    -J ubuntu@${bastion} \
+    -L 9090:localhost:9090 \
+    -L 3000:localhost:3000 \
+    ubuntu@${monitoring}
+
+Then open:
+
+Prometheus:
+http://localhost:9090
+
+Grafana:
+http://localhost:3000
+
+========================================================
+"""
+
+            }
+
+        }
+
+    }
+
+}
     }
 }
