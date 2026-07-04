@@ -129,6 +129,41 @@ stage('Terraform Apply') {
 
     }
 
+}
+stage('Terraform Destroy') {
+
+    when {
+        expression {
+            params.ACTION == 'DESTROY'
+        }
+    }
+
+    steps {
+
+        dir('terraform') {
+
+            script {
+
+                if (params.AUTO_APPROVE) {
+
+                    sh '''
+                        terraform destroy -auto-approve
+                    '''
+
+                } else {
+
+                    sh '''
+                        terraform destroy
+                    '''
+
+                }
+
+            }
+
+        }
+
+    }
+
 }        
         stage('Show Parameters') {
             steps {
