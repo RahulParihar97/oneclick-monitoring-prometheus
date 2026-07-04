@@ -61,6 +61,19 @@ stage('Terraform Validate') {
         }
     }
 }
+        stage('Terraform Plan') {
+    when {
+        expression { params.ACTION == 'APPLY' }
+    }
+
+    steps {
+        dir('terraform') {
+            sh '''
+                terraform plan -out=tfplan
+            '''
+        }
+    }
+}
         stage('Show Parameters') {
             steps {
                 sh """
