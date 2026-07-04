@@ -1,15 +1,15 @@
 output "bastion_public_ip" {
-  value = aws_instance.this["bastion-server"].public_ip
+  value = module.ec2.public_ips["bastion-server"]
 }
 
 output "app_server_1_private_ip" {
-  value = aws_instance.this["app-server-1"].private_ip
+  value = module.ec2.private_ips["app-server-1"]
 }
 
 output "app_server_2_private_ip" {
-  value = aws_instance.this["app-server-2"].private_ip
+  value = module.ec2.private_ips["app-server-2"]
 }
 
 output "monitoring_private_ip" {
-  value = aws_instance.this["monitoring-server"].private_ip
+  value = module.ec2.private_ips["monitoring-server"]
 }
