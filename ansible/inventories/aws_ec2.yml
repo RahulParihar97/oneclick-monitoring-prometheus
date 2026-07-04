@@ -10,12 +10,16 @@ hostnames:
   - tag:Name
 
 compose:
-  ansible_host: ec2_tags.Name
+  ansible_host: >
+    public_ip_address if tags.Role == 'bastion'
+    else private_ip_address
   ansible_user: "'ubuntu'"
 
-keyed_groups:
-  - key: ec2_tags.Role
-    separator: ""
+groups:
+  bastion: tags.Role == 'bastion'
+  monitoring: tags.Role == 'monitoring'
+  node_exporter: tags.Role == 'node_exporter'
 
-  - key: ec2_tags.OS
+keyed_groups:
+  - key: tags.OS
     separator: ""
