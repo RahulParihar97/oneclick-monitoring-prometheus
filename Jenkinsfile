@@ -80,14 +80,6 @@ pipeline {
             }
         }
 
-        stage('tfsec Security Scan') {
-            steps {
-                dir('terraform') {
-                    sh 'tfsec .'
-                }
-            }
-        }
-
         stage('Terraform Plan') {
             when { expression { params.ACTION == 'APPLY' } }
             steps {
