@@ -1,5 +1,4 @@
 pipeline {
-
     agent any
 
     options {
@@ -13,13 +12,11 @@ pipeline {
             choices: ['APPLY', 'DESTROY'],
             description: 'Choose Terraform Action'
         )
-
         booleanParam(
             name: 'AUTO_APPROVE',
             defaultValue: true,
             description: 'Auto approve Terraform'
         )
-
         booleanParam(
             name: 'RUN_ANSIBLE',
             defaultValue: true,
@@ -28,13 +25,11 @@ pipeline {
     }
 
     stages {
-
         stage('Checkout') {
-            steps {
-                checkout scm
-            }
+            steps { checkout scm }
         }
-             stage('Show Parameters') {
+
+        stage('Show Parameters') {
             steps {
                 sh """
                     echo "ACTION        : ${params.ACTION}"
@@ -52,291 +47,178 @@ pipeline {
                 '''
             }
         }
+
         stage('Terraform Init') {
             steps {
                 dir('terraform') {
-                                sh '''
-                            terraform init
-            '''
+                    sh 'terraform init'
+                }
+            }
         }
-    }
-}
+
         stage('Terraform Format Check') {
-    steps {
-        dir('terraform') {
-            sh '''
-                terraform fmt -check -recursive
-            '''
+            steps {
+                dir('terraform') {
+                    sh 'terraform fmt -check -recursive'
+                }
+            }
         }
-    }
-}
-stage('Terraform Validate') {
-    steps {
-        dir('terraform') {
-            sh '''
-                terraform validate
-            '''
+
+        stage('Terraform Validate') {
+            steps {
+                dir('terraform') {
+                    sh 'terraform validate'
+                }
+            }
         }
-    }
-}
+
+        stage('TFLint') {
+            steps {
+                dir('terraform') {
+                    sh 'tflint --init && tflint'
+                }
+            }
+        }
+
+        stage('tfsec Security Scan') {
+            steps {
+                dir('terraform') {
+                    sh 'tfsec .'
+                }
+            }
+        }
+
         stage('Terraform Plan') {
-    when {
-        expression { params.ACTION == 'APPLY' }
-    }
-
-    steps {
-        dir('terraform') {
-            sh '''
-                terraform plan -out=tfplan
-            '''
-        }
-    }
-}
-stage('Archive Plan') {
-    when {
-        expression { params.ACTION == 'APPLY' }
-    }
-
-    steps {
-        archiveArtifacts artifacts: 'terraform/tfplan'
-    }
-}
-stage('Approval') {
-
-    when {
-        expression {
-            params.ACTION == 'APPLY' && !params.AUTO_APPROVE
-        }
-    }
-
-    steps {
-        input message: 'Proceed with Terraform Apply?'
-    }
-}
-stage('Terraform Apply') {
-
-    when {
-        expression {
-            params.ACTION == 'APPLY'
-        }
-    }
-
-    steps {
-
-        dir('terraform') {
-
-            script {
-
-                if (params.AUTO_APPROVE) {
-
-                    sh '''
-                        terraform apply -auto-approve tfplan
-                    '''
-
-                } else {
-
-                    sh '''
-                        terraform apply tfplan
-                    '''
-
+            when { expression { params.ACTION == 'APPLY' } }
+            steps {
+                dir('terraform') {
+                    sh 'terraform plan -out=tfplan'
                 }
-
             }
-
         }
 
-    }
-
-}
-stage('Terraform Outputs') {
-
-    when {
-        expression { params.ACTION == 'APPLY' }
-    }
-
-    steps {
-
-        dir('terraform') {
-
-            sh '''
-            terraform output
-            '''
-
+        stage('Archive Plan') {
+            when { expression { params.ACTION == 'APPLY' } }
+            steps {
+                archiveArtifacts artifacts: 'terraform/tfplan'
+            }
         }
 
-    }
-
-}
-stage('Wait for SSH') {
-
-    when {
-        expression { params.ACTION == 'APPLY' }
-    }
-
-    steps {
-
-        dir('terraform') {
-
-            sh '''
-            BASTION_IP=$(terraform output -raw bastion_public_ip)
-
-            echo "Waiting for SSH..."
-
-            for i in {1..30}; do
-
-                if nc -z $BASTION_IP 22; then
-                    echo "SSH Ready"
-                    exit 0
-                fi
-
-                echo "Retry $i..."
-
-                sleep 10
-
-            done
-
-            exit 1
-            '''
-
+        stage('Approval') {
+            when { expression { params.ACTION == 'APPLY' && !params.AUTO_APPROVE } }
+            steps {
+                input message: 'Proceed with Terraform Apply?'
+            }
         }
 
-    }
-
-}
-        
-stage('Terraform Destroy') {
-
-    when {
-        expression {
-            params.ACTION == 'DESTROY'
-        }
-    }
-
-    steps {
-
-        dir('terraform') {
-
-            script {
-
-                if (params.AUTO_APPROVE) {
-
-                    sh '''
-                        terraform destroy -auto-approve
-                    '''
-
-                } else {
-
-                    sh '''
-                        terraform destroy
-                    '''
-
+        stage('Terraform Apply') {
+            when { expression { params.ACTION == 'APPLY' } }
+            steps {
+                dir('terraform') {
+                    script {
+                        if (params.AUTO_APPROVE) {
+                            sh 'terraform apply -auto-approve tfplan'
+                        } else {
+                            sh 'terraform apply tfplan'
+                        }
+                    }
                 }
-
             }
-
         }
 
-    }
-
-}        
-    }
-}
-stage('Ansible Inventory') {
-
-    when {
-        expression {
-            params.ACTION == 'APPLY' &&
-            params.RUN_ANSIBLE
-        }
-    }
-
-    steps {
-
-        dir('ansible') {
-
-            sh '''
-            export ANSIBLE_SSH_ARGS="-F ${WORKSPACE}/terraform/generated/ssh_config"
-
-            ansible-inventory --graph
-            '''
-
+        stage('Terraform Outputs') {
+            when { expression { params.ACTION == 'APPLY' } }
+            steps {
+                dir('terraform') {
+                    sh 'terraform output'
+                }
+            }
         }
 
-    }
-
-}
-stage('Ansible Ping') {
-
-    when {
-        expression {
-            params.ACTION == 'APPLY' &&
-            params.RUN_ANSIBLE
-        }
-    }
-
-    steps {
-
-        dir('ansible') {
-
-            sh '''
-            export ANSIBLE_SSH_ARGS="-F ${WORKSPACE}/terraform/generated/ssh_config"
-
-            ansible all -m ping
-            '''
-
+        stage('Wait for SSH') {
+            when { expression { params.ACTION == 'APPLY' } }
+            steps {
+                dir('terraform') {
+                    sh '''
+                        BASTION_IP=$(terraform output -raw bastion_public_ip)
+                        echo "Waiting for SSH..."
+                        for i in {1..30}; do
+                            if nc -z $BASTION_IP 22; then
+                                echo "SSH Ready"
+                                exit 0
+                            fi
+                            echo "Retry $i..."
+                            sleep 10
+                        done
+                        exit 1
+                    '''
+                }
+            }
         }
 
-    }
-
-}
-stage('Run Playbook') {
-
-    when {
-        expression {
-            params.ACTION == 'APPLY' &&
-            params.RUN_ANSIBLE
-        }
-    }
-
-    steps {
-
-        dir('ansible') {
-
-            sh '''
-            export ANSIBLE_SSH_ARGS="-F ${WORKSPACE}/terraform/generated/ssh_config"
-
-            ansible-playbook playbooks/site.yml
-            '''
-
+        stage('Terraform Destroy') {
+            when { expression { params.ACTION == 'DESTROY' } }
+            steps {
+                dir('terraform') {
+                    script {
+                        if (params.AUTO_APPROVE) {
+                            sh 'terraform destroy -auto-approve'
+                        } else {
+                            sh 'terraform destroy'
+                        }
+                    }
+                }
+            }
         }
 
-    }
-
-}
-stage('Verify Services') {
-
-    when {
-        expression {
-            params.ACTION == 'APPLY'
-        }
-    }
-
-    steps {
-
-        dir('ansible') {
-
-            sh '''
-            export ANSIBLE_SSH_ARGS="-F ${WORKSPACE}/terraform/generated/ssh_config"
-
-            ansible monitoring -m shell -a "systemctl is-active prometheus"
-
-            ansible monitoring -m shell -a "systemctl is-active grafana-server"
-
-            ansible node_exporter -m shell -a "systemctl is-active node_exporter"
-            '''
-
+        stage('Ansible Inventory') {
+            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
+            steps {
+                dir('ansible') {
+                    sh '''
+                        export ANSIBLE_SSH_ARGS="-F ${WORKSPACE}/terraform/generated/ssh_config"
+                        ansible-inventory --graph
+                    '''
+                }
+            }
         }
 
-    }
+        stage('Ansible Ping') {
+            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
+            steps {
+                dir('ansible') {
+                    sh '''
+                        export ANSIBLE_SSH_ARGS="-F ${WORKSPACE}/terraform/generated/ssh_config"
+                        ansible all -m ping
+                    '''
+                }
+            }
+        }
 
+        stage('Run Playbook') {
+            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
+            steps {
+                dir('ansible') {
+                    sh '''
+                        export ANSIBLE_SSH_ARGS="-F ${WORKSPACE}/terraform/generated/ssh_config"
+                        ansible-playbook playbooks/site.yml
+                    '''
+                }
+            }
+        }
+
+        stage('Verify Services') {
+            when { expression { params.ACTION == 'APPLY' } }
+            steps {
+                dir('ansible') {
+                    sh '''
+                        export ANSIBLE_SSH_ARGS="-F ${WORKSPACE}/terraform/generated/ssh_config"
+                        ansible monitoring -m shell -a "systemctl is-active prometheus"
+                        ansible monitoring -m shell -a "systemctl is-active grafana-server"
+                        ansible node_exporter -m shell -a "systemctl is-active node_exporter"
+                    '''
+                }
+            }
+        }
+    }
 }
