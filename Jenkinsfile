@@ -188,7 +188,7 @@ pipeline {
         stage('Run Playbook') {
             when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
             steps {
-                sshagent(credentials: ['ec2-key']) {
+                sshagent(credentials: ['ec2-key-one-click']) {
                     dir('ansible') {
                         sh 'ansible-playbook playbooks/site.yml'
                     }
