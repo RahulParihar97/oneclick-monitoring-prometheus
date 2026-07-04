@@ -166,7 +166,7 @@ pipeline {
         stage('Ansible Inventory') {
             when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
             steps {
-                sshagent(credentials: ['ec2-key']) {
+                sshagent(credentials: ['ec2-key-one-click']) {
                     dir('ansible') {
                         sh 'ansible-inventory --graph'
                     }
@@ -177,7 +177,7 @@ pipeline {
         stage('Ansible Ping') {
             when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
             steps {
-                sshagent(credentials: ['ec2-key']) {
+                sshagent(credentials: ['ec2-key-one-click']) {
                     dir('ansible') {
                         sh 'ansible all -m ping'
                     }
@@ -199,7 +199,7 @@ pipeline {
         stage('Verify Services') {
             when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
             steps {
-                sshagent(credentials: ['ec2-key']) {
+                sshagent(credentials: ['ec2-key-one-click']) {
                     dir('ansible') {
                         sh '''
                             ansible monitoring -m shell -a "systemctl is-active prometheus"
