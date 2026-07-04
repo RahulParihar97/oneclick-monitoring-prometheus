@@ -1,0 +1,10 @@
+[server]
+http_addr =
+http_port = 3000
+domain = {{ hostvars['bastion-server'].ansible_host }}
+root_url = %(protocol)s://%(domain)s/grafana/
+serve_from_sub_path = true
+
+[security]
+admin_user = admin
+admin_password = admin
