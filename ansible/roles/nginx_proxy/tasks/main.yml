@@ -1,0 +1,22 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for roles/nginx_proxy
+
+- name: Install nginx
+  apt:
+    name: nginx
+    state: present
+    update_cache: yes
+
+- name: Copy nginx configuration
+  template:
+    src: default.conf.j2
+    dest: /etc/nginx/sites-available/default
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart nginx
+
+- name: Validate nginx configuration
+  command: nginx -t
+  changed_when: false

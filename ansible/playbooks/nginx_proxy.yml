@@ -1,0 +1,6 @@
+---
+- hosts: bastion
+  become: yes
+
+  roles:
+    - nginx_proxy
