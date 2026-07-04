@@ -14,6 +14,16 @@ resource "aws_security_group" "bastion" {
     cidr_blocks = [var.my_ip]
   }
 
+  ingress {
+    description = "HTTP for Nginx Reverse Proxy"
+
+    from_port = 80
+    to_port   = 80
+    protocol  = "tcp"
+
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
 
     from_port = 0
@@ -29,6 +39,7 @@ resource "aws_security_group" "bastion" {
   }
 
 }
+
 resource "aws_security_group" "app" {
 
   name   = "app-sg"
@@ -77,6 +88,7 @@ resource "aws_security_group" "app" {
   }
 
 }
+
 resource "aws_security_group" "monitoring" {
 
   name   = "monitoring-sg"
@@ -98,25 +110,29 @@ resource "aws_security_group" "monitoring" {
 
   ingress {
 
-    description = "Grafana"
+    description = "Grafana from Bastion"
 
     from_port = 3000
     to_port   = 3000
     protocol  = "tcp"
 
-    cidr_blocks = [var.my_ip]
+    security_groups = [
+      aws_security_group.bastion.id
+    ]
 
   }
 
   ingress {
 
-    description = "Prometheus"
+    description = "Prometheus from Bastion"
 
     from_port = 9090
     to_port   = 9090
     protocol  = "tcp"
 
-    cidr_blocks = [var.my_ip]
+    security_groups = [
+      aws_security_group.bastion.id
+    ]
 
   }
 
