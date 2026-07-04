@@ -1,20 +1,24 @@
-.terraform/
+# Terraform
+**/.terraform/
 *.tfstate
 *.tfstate.*
-terraform.tfplan
+*.tfplan
 .terraform.lock.hcl
 
-*.retry
+# SSH Keys
+*.pem
+*.pub
 
+# Logs
 *.log
 
-*.swp
-
-.idea/
+# IDE
 .vscode/
+.idea/
 
+# Python
 __pycache__/
+*.pyc
 
-*.pem
-
-ansible-demo.pub
+# Misc
+.DS_Store
