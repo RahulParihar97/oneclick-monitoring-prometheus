@@ -34,6 +34,15 @@ pipeline {
                 checkout scm
             }
         }
+        stage('Terraform Init') {
+            steps {
+                dir('terraform') {
+                                sh '''
+                            terraform init
+            '''
+        }
+    }
+}
 
         stage('Show Parameters') {
             steps {
