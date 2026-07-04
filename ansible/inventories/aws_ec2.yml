@@ -1,0 +1,21 @@
+plugin: amazon.aws.aws_ec2
+
+regions:
+  - ap-south-1
+
+filters:
+  instance-state-name: running
+
+hostnames:
+  - tag:Name
+
+compose:
+  ansible_host: ec2_tags.Name
+  ansible_user: "'ubuntu'"
+
+keyed_groups:
+  - key: ec2_tags.Role
+    separator: ""
+
+  - key: ec2_tags.OS
+    separator: ""

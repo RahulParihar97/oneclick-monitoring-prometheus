@@ -1,0 +1,8 @@
+---
+- name: Start node exporter
+  systemd:
+    name: node_exporter
+    state: started
+    enabled: true
+    daemon_reload: true
+

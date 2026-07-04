@@ -1,0 +1,9 @@
+#SPDX-License-Identifier: MIT-0
+---
+# handlers file for roles/node_exporter
+
+- name: restart node exporter
+  systemd:
+    name: node_exporter
+    state: restarted
+    daemon_reload: true

@@ -1,0 +1,81 @@
+#SPDX-License-Identifier: MIT-0
+# tasks file for roles/grafana
+---
+- name: Install required packages
+  apt:
+    name:
+      - wget
+      - gpg
+    state: present
+    update_cache: yes
+
+- name: Create keyrings directory
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Download Grafana GPG key
+  shell: |
+    wget -q -O - https://apt.grafana.com/gpg.key | gpg --dearmor -o /etc/apt/keyrings/grafana.gpg
+  args:
+    creates: /etc/apt/keyrings/grafana.gpg
+
+- name: Add Grafana repository
+  copy:
+    dest: /etc/apt/sources.list.d/grafana.list
+    content: |
+      deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+
+- name: Install Grafana
+  apt:
+    name: grafana
+    state: present
+
+- name: Enable Grafana
+  systemd:
+    name: grafana-server
+    enabled: yes
+
+- name: Start Grafana
+  systemd:
+    name: grafana-server
+    state: started
+
+- name: Create datasource directory
+  file:
+    path: /etc/grafana/provisioning/datasources
+    state: directory
+
+- name: Deploy datasource
+  copy:
+    src: provisioning/datasources/datasource.yml
+    dest: /etc/grafana/provisioning/datasources/datasource.yml
+  notify: restart grafana
+
+- name: Create dashboard directory
+  file:
+    path: /var/lib/grafana/dashboards
+    state: directory
+    owner: grafana
+    group: grafana
+    mode: '0755'
+
+- name: Copy dashboard provider
+  template:
+    src: dashboard-provider.yml.j2
+    dest: /etc/grafana/provisioning/dashboards/default.yml
+  notify: restart grafana
+
+- name: Copy Node Exporter Dashboard
+  copy:
+    src: node-exporter-full.json
+    dest: /var/lib/grafana/dashboards/node-exporter-full.json
+    owner: grafana
+    group: grafana
+    mode: '0644'
+  notify: restart grafana

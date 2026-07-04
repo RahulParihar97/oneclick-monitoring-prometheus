@@ -1,0 +1,31 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090
+
+  - job_name: node_exporter
+    ec2_sd_configs:
+      - region: ap-south-1
+        port: 9100
+        filters:
+          - name: instance-state-name
+            values:
+              - running
+
+          - name: tag:Role
+            values:
+              - node_exporter
+              - monitoring
+
+    relabel_configs:
+      - source_labels: [__meta_ec2_private_ip]
+        target_label: __address__
+        replacement: $1:9100
+
+      - source_labels: [__meta_ec2_tag_Name]
+        target_label: instance

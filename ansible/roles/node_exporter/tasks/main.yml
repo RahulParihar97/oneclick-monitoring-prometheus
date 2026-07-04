@@ -1,0 +1,12 @@
+---
+- name: Load OS specific variables
+  include_vars: "{{ ansible_facts['os_family'] }}.yml"
+
+- name: Include install tasks
+  include_tasks: install.yml
+
+- name: Include configure tasks
+  include_tasks: configure.yml
+
+- name: Include service tasks
+  include_tasks: service.yml

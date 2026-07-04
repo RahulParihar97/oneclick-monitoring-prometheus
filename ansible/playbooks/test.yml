@@ -1,0 +1,8 @@
+---
+- hosts: node_exporter
+  gather_facts: false
+
+  tasks:
+    - name: Show user
+      debug:
+        var: ansible_user

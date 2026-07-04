@@ -1,0 +1,7 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for roles/node_exporter
+#
+node_exporter_version: "1.8.1"
+node_exporter_user: node_exporter
+node_exporter_port: 9100
