@@ -1,25 +1,15 @@
 output "bastion_public_ip" {
-  value = module.ec2.public_ips["bastion-server"]
-}
-
-output "monitoring_private_ip" {
-  value = module.ec2.private_ips["monitoring-server"]
+  value = aws_instance.this["bastion-server"].public_ip
 }
 
 output "app_server_1_private_ip" {
-  value = module.ec2.private_ips["app-server-1"]
+  value = aws_instance.this["app-server-1"].private_ip
 }
 
 output "app_server_2_private_ip" {
-  value = module.ec2.private_ips["app-server-2"]
+  value = aws_instance.this["app-server-2"].private_ip
 }
 
-output "ssh_config" {
-  value = <<EOT
-Host bastion-server
-  HostName ${aws_instance.bastion.public_ip}
-  User ubuntu
-  IdentityFile ${path.module}/generated/id_rsa
-EOT
+output "monitoring_private_ip" {
+  value = aws_instance.this["monitoring-server"].private_ip
 }
-
