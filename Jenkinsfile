@@ -126,15 +126,6 @@ pipeline {
                 }
             }
         }
-stage('Generate SSH Config') {
-    steps {
-        dir('terraform') {
-            sh '''
-                terraform output ssh_config > generated/ssh_config
-            '''
-        }
-    }
-}
 
         stage('Wait for SSH') {
             when { expression { params.ACTION == 'APPLY' } }
@@ -171,55 +162,79 @@ stage('Generate SSH Config') {
                 }
             }
         }
+stage('Ansible Inventory') {
 
-        stage('Ansible Inventory') {
-            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
-            steps {
-                dir('ansible') {
-                    sh '''
-                        export ANSIBLE_SSH_ARGS="-F ${WORKSPACE}/terraform/generated/ssh_config"
-                        ansible-inventory --graph
-                    '''
-                }
-            }
+    when {
+        expression {
+            params.ACTION == 'APPLY' && params.RUN_ANSIBLE
         }
+    }
 
-        stage('Ansible Ping') {
-            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
-            steps {
-                dir('ansible') {
-                    sh '''
-                        export ANSIBLE_SSH_ARGS="-F ${WORKSPACE}/terraform/generated/ssh_config"
-                        ansible all -m ping
-                    '''
-                }
-            }
-        }
-
-        stage('Run Playbook') {
-            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
-            steps {
-                dir('ansible') {
-                    sh '''
-                        export ANSIBLE_SSH_ARGS="-F ${WORKSPACE}/terraform/generated/ssh_config"
-                        ansible-playbook playbooks/site.yml
-                    '''
-                }
-            }
-        }
-
-        stage('Verify Services') {
-            when { expression { params.ACTION == 'APPLY' } }
-            steps {
-                dir('ansible') {
-                    sh '''
-                        export ANSIBLE_SSH_ARGS="-F ${WORKSPACE}/terraform/generated/ssh_config"
-                        ansible monitoring -m shell -a "systemctl is-active prometheus"
-                        ansible monitoring -m shell -a "systemctl is-active grafana-server"
-                        ansible node_exporter -m shell -a "systemctl is-active node_exporter"
-                    '''
-                }
+    steps {
+        sshagent(credentials: ['ec2-key']) {
+            dir('ansible') {
+                sh '''
+                    ansible-inventory --graph
+                '''
             }
         }
     }
 }
+stage('Ansible Ping') {
+
+    when {
+        expression {
+            params.ACTION == 'APPLY' && params.RUN_ANSIBLE
+        }
+    }
+
+    steps {
+        sshagent(credentials: ['ec2-key']) {
+            dir('ansible') {
+                sh '''
+                    ansible all -m ping
+                '''
+            }
+        }
+    }
+}
+stage('Run Playbook') {
+
+    when {
+        expression {
+            params.ACTION == 'APPLY' && params.RUN_ANSIBLE
+        }
+    }
+
+    steps {
+        sshagent(credentials: ['ec2-key']) {
+            dir('ansible') {
+                sh '''
+                    ansible-playbook playbooks/site.yml
+                '''
+            }
+        }
+    }
+}
+stage('Verify Services') {
+
+    when {
+        expression {
+            params.ACTION == 'APPLY' && params.RUN_ANSIBLE
+        }
+    }
+
+    steps {
+        sshagent(credentials: ['ec2-key']) {
+            dir('ansible') {
+                sh '''
+                    ansible monitoring -m shell -a "systemctl is-active prometheus"
+
+                    ansible monitoring -m shell -a "systemctl is-active grafana-server"
+
+                    ansible node_exporter -m shell -a "systemctl is-active node_exporter"
+                '''
+            }
+        }
+    }
+}        
