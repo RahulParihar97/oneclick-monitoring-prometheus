@@ -7,3 +7,10 @@ node_exporter_version: "1.8.1"
 prometheus_port: 9090
 grafana_port: 3000
 node_exporter_port: 9100
+
+ansible_ssh_common_args: >-
+  -o ProxyCommand="ssh
+  -o StrictHostKeyChecking=no
+  -o UserKnownHostsFile=/dev/null
+  -W %h:%p
+  ubuntu@{{ hostvars['bastion-server'].ansible_host }}"
