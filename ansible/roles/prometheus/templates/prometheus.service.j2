@@ -8,9 +8,7 @@ Group=prometheus
 
 ExecStart=/usr/local/bin/prometheus \
   --config.file=/etc/prometheus/prometheus.yml \
-  --storage.tsdb.path=/var/lib/prometheus \
-  --web.external-url=http://{{ hostvars['bastion-server'].ansible_host }}/prometheus \
-  --web.route-prefix=/
+  --storage.tsdb.path=/var/lib/prometheus
 
 Restart=always
 
