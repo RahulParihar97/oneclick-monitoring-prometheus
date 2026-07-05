@@ -149,7 +149,56 @@ pipeline {
                 }
             }
         }
+stage('Generate SSH Config') {
 
+    when {
+        expression {
+            params.ACTION == 'APPLY' && params.RUN_ANSIBLE
+        }
+    }
+
+    steps {
+
+        script {
+
+            dir(env.TF_DIR) {
+
+                env.BASTION_IP = sh(
+                    script: 'terraform output -raw bastion_public_ip',
+                    returnStdout: true
+                ).trim()
+
+            }
+
+            writeFile(
+                file: "${env.ANSIBLE_DIR}/ssh_config",
+                text: """
+Host bastion
+    HostName ${env.BASTION_IP}
+    User ubuntu
+
+Host 10.0.*.*
+    User ubuntu
+    ProxyJump bastion
+
+Host *
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+"""
+            )
+
+            sh """
+            echo "=============================================="
+            echo "Generated SSH Config"
+            echo "=============================================="
+            cat ${env.ANSIBLE_DIR}/ssh_config
+            """
+
+        }
+
+    }
+
+}
         
         stage('Terraform Destroy') {
             when {
