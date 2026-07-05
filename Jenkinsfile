@@ -348,27 +348,36 @@ stage('Generate Ansible Variables') {
             }
 
             writeFile(
-                file: "${env.ANSIBLE_DIR}/vars/generated.yml",
+                file: "${env.ANSIBLE_DIR}/group_vars/all.yml",
                 text: """
-bastion_ip: ${env.BASTION_IP}
+ansible_user: ubuntu
+
+prometheus_version: "2.54.0"
+grafana_version: "11.1.0"
+node_exporter_version: "1.8.1"
+
+prometheus_port: 9090
+grafana_port: 3000
+node_exporter_port: 9100
 
 ansible_ssh_common_args: >-
   -o ProxyJump=ubuntu@${env.BASTION_IP}
 """
             )
 
-            echo "Generated ansible/group_vars/generated/bastion.yml"
+            echo "=============================================="
+            echo "Generated group_vars/all.yml"
+            echo "=============================================="
 
             sh """
-            cat ${env.ANSIBLE_DIR}/group_vars/generated/bastion.yml
+            cat ${env.ANSIBLE_DIR}/group_vars/all.yml
             """
 
         }
 
     }
 
-}        
-
+}
 stage('Terraform Destroy') {
 
     when {
