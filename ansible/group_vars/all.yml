@@ -9,4 +9,4 @@ grafana_port: 3000
 node_exporter_port: 9100
 
 ansible_ssh_common_args: >-
-  -o ProxyJump=ubuntu@{{ hostvars['bastion-server'].ansible_host }}
+  -o ProxyJump=ubuntu@{{ bastion_ip }}
