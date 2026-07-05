@@ -15,7 +15,7 @@
     owner: root
     group: root
     mode: "0644"
-  notify: Restart nginx
+  notify: restart nginx
 
 - name: Validate nginx configuration
   command: nginx -t
