@@ -147,6 +147,60 @@ pipeline {
                 }
             }
         }
+        stage('Copy PEM to Bastion') {
+
+    when {
+        expression {
+            params.ACTION == 'APPLY' && params.RUN_ANSIBLE
+        }
+    }
+
+    steps {
+
+        dir('terraform') {
+
+            script {
+
+                def bastion = sh(
+                    script: 'terraform output -raw bastion_public_ip',
+                    returnStdout: true
+                ).trim()
+
+                withCredentials([
+                    sshUserPrivateKey(
+                        credentialsId: 'ec2-key-one-click',
+                        keyFileVariable: 'SSH_KEY',
+                        usernameVariable: 'SSH_USER'
+                    )
+                ]) {
+
+                    sh """
+                        echo "Copying PEM file to Bastion..."
+
+                        scp \
+                        -o StrictHostKeyChecking=no \
+                        -i \$SSH_KEY \
+                        \$SSH_KEY \
+                        \$SSH_USER@${bastion}:/home/\$SSH_USER/ansible-demo.pem
+
+                        ssh \
+                        -o StrictHostKeyChecking=no \
+                        -i \$SSH_KEY \
+                        \$SSH_USER@${bastion} \
+                        "chmod 400 ~/ansible-demo.pem"
+
+                        echo "PEM copied successfully."
+                    """
+
+                }
+
+            }
+
+        }
+
+    }
+
+}
 
         stage('Terraform Destroy') {
             when { expression { params.ACTION == 'DESTROY' } }
