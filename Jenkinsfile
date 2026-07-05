@@ -17,13 +17,14 @@ pipeline {
         TF_DIR = 'terraform'
         ANSIBLE_DIR = 'ansible'
         SSH_CREDENTIAL = 'ec2-key-one-click'
+        VENV = "/var/lib/jenkins/venvs/ansible"
+        ANSIBLE = "${VENV}/bin/ansible-playbook"
+        INVENTORY = "${VENV}/bin/ansible-inventory"
     }
 
     stages {
         stage('Checkout Source') {
-            steps {
-                checkout scm
-            }
+            steps { checkout scm }
         }
 
         stage('Show Build Parameters') {
@@ -37,61 +38,33 @@ pipeline {
         }
 
         stage('Verify Workspace') {
-            steps {
-                sh "pwd && ls -lah && tree -L 2 || true"
-            }
+            steps { sh "pwd && ls -lah && tree -L 2 || true" }
         }
 
         stage('Terraform Init') {
-            steps {
-                dir(env.TF_DIR) {
-                    sh "terraform init"
-                }
-            }
+            steps { dir(env.TF_DIR) { sh "terraform init" } }
         }
 
         stage('Terraform Format Check') {
-            steps {
-                dir(env.TF_DIR) {
-                    sh "terraform fmt -check -recursive"
-                }
-            }
+            steps { dir(env.TF_DIR) { sh "terraform fmt -check -recursive" } }
         }
 
         stage('Terraform Validate') {
-            steps {
-                dir(env.TF_DIR) {
-                    sh "terraform validate"
-                }
-            }
+            steps { dir(env.TF_DIR) { sh "terraform validate" } }
         }
 
         stage('TFLint') {
-            steps {
-                dir(env.TF_DIR) {
-                    sh "tflint --init && tflint"
-                }
-            }
+            steps { dir(env.TF_DIR) { sh "tflint --init && tflint" } }
         }
 
         stage('Terraform Plan') {
-            when {
-                expression { params.ACTION == 'APPLY' }
-            }
-            steps {
-                dir(env.TF_DIR) {
-                    sh "terraform plan -out=tfplan"
-                }
-            }
+            when { expression { params.ACTION == 'APPLY' } }
+            steps { dir(env.TF_DIR) { sh "terraform plan -out=tfplan" } }
         }
 
         stage('Archive Plan') {
-            when {
-                expression { params.ACTION == 'APPLY' }
-            }
-            steps {
-                archiveArtifacts artifacts: 'terraform/tfplan'
-            }
+            when { expression { params.ACTION == 'APPLY' } }
+            steps { archiveArtifacts artifacts: 'terraform/tfplan' }
         }
 
         stage('Approval') {
@@ -101,15 +74,11 @@ pipeline {
                     expression { !params.AUTO_APPROVE }
                 }
             }
-            steps {
-                input message: 'Proceed with Terraform Apply?', ok: 'Apply'
-            }
+            steps { input message: 'Proceed with Terraform Apply?', ok: 'Apply' }
         }
 
         stage('Terraform Apply') {
-            when {
-                expression { params.ACTION == 'APPLY' }
-            }
+            when { expression { params.ACTION == 'APPLY' } }
             steps {
                 dir(env.TF_DIR) {
                     script {
@@ -124,9 +93,7 @@ pipeline {
         }
 
         stage('Terraform Outputs') {
-            when {
-                expression { params.ACTION == 'APPLY' }
-            }
+            when { expression { params.ACTION == 'APPLY' } }
             steps {
                 script {
                     dir(env.TF_DIR) {
@@ -135,9 +102,7 @@ pipeline {
                             returnStdout: true
                         ).trim()
                     }
-
                     echo "Bastion IP: ${env.BASTION_IP}"
-
                     dir(env.TF_DIR) {
                         sh '''
                             echo "=============================================="
@@ -151,9 +116,7 @@ pipeline {
         }
 
         stage('Generate Ansible Variables') {
-            when {
-                expression { params.ACTION == 'APPLY' }
-            }
+            when { expression { params.ACTION == 'APPLY' } }
             steps {
                 script {
                     dir(env.TF_DIR) {
@@ -162,7 +125,6 @@ pipeline {
                             returnStdout: true
                         ).trim()
                     }
-
                     writeFile(
                         file: "${env.ANSIBLE_DIR}/group_vars/all.yml",
                         text: """
@@ -177,16 +139,13 @@ ansible_ssh_common_args: >-
   -o ProxyJump=ubuntu@${env.BASTION_IP}
 """
                     )
-
                     sh "cat ${env.ANSIBLE_DIR}/group_vars/all.yml"
                 }
             }
         }
 
         stage('Terraform Destroy') {
-            when {
-                expression { params.ACTION == 'DESTROY' }
-            }
+            when { expression { params.ACTION == 'DESTROY' } }
             steps {
                 dir(env.TF_DIR) {
                     script {
@@ -201,9 +160,7 @@ ansible_ssh_common_args: >-
         }
 
         stage('Wait for Bastion SSH') {
-            when {
-                expression { params.ACTION == 'APPLY' }
-            }
+            when { expression { params.ACTION == 'APPLY' } }
             steps {
                 dir(env.TF_DIR) {
                     sh '''
@@ -224,47 +181,43 @@ ansible_ssh_common_args: >-
         }
 
         stage('Wait for Cloud Init') {
-            when {
-                expression { params.ACTION == 'APPLY' }
-            }
-            steps {
-                sleep time: 120, unit: 'SECONDS'
-            }
+            when { expression { params.ACTION == 'APPLY' } }
+            steps { sleep time: 120, unit: 'SECONDS' }
         }
 
         stage('Ansible Inventory') {
-            when {
-                expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
-            }
+            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
             steps {
                 sshagent(credentials: [env.SSH_CREDENTIAL]) {
                     dir(env.ANSIBLE_DIR) {
-                        sh "ansible-inventory --graph && ansible-inventory --list > inventory.json"
+                        sh """
+                            . ${env.VENV}/bin/activate
+                            ${env.INVENTORY} --graph
+                            ${env.INVENTORY} --list > inventory.json
+                        """
                     }
                 }
             }
         }
 
         stage('Ansible Connectivity Test') {
-            when {
-                expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
-            }
+            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
             steps {
                 sshagent(credentials: [env.SSH_CREDENTIAL]) {
                     script {
                         def bastion = ""
-
                         dir(env.TF_DIR) {
                             bastion = sh(
                                 script: "terraform output -raw bastion_public_ip",
                                 returnStdout: true
                             ).trim()
                         }
-
                         echo "Bastion IP: ${bastion}"
-
                         dir(env.ANSIBLE_DIR) {
-                            sh "ansible all -e 'ansible_ssh_common_args=-o ProxyJump=ubuntu@${bastion}' -m ping -vvvv"
+                            sh """
+                                . ${env.VENV}/bin/activate
+                                ${env.ANSIBLE} all -e 'ansible_ssh_common_args=-o ProxyJump=ubuntu@${bastion}' -m ping -vvvv
+                            """
                         }
                     }
                 }
@@ -272,22 +225,21 @@ ansible_ssh_common_args: >-
         }
 
         stage('Configure Infrastructure') {
-            when {
-                expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
-            }
+            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
             steps {
                 sshagent(credentials: [env.SSH_CREDENTIAL]) {
                     dir(env.ANSIBLE_DIR) {
-                        sh "ansible-playbook playbooks/site.yml -e 'ansible_ssh_common_args=-o ProxyJump=ubuntu@${env.BASTION_IP}'"
+                        sh """
+                            . ${env.VENV}/bin/activate
+                            ${env.ANSIBLE} playbooks/site.yml -e 'ansible_ssh_common_args=-o ProxyJump=ubuntu@${env.BASTION_IP}'
+                        """
                     }
                 }
             }
         }
 
         stage('Copy PEM to Bastion') {
-            when {
-                expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
-            }
+            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
             steps {
                 dir(env.TF_DIR) {
                     script {
@@ -295,7 +247,6 @@ ansible_ssh_common_args: >-
                             script: 'terraform output -raw bastion_public_ip',
                             returnStdout: true
                         ).trim()
-
                         withCredentials([sshUserPrivateKey(
                             credentialsId: env.SSH_CREDENTIAL,
                             keyFileVariable: 'SSH_KEY',
@@ -313,39 +264,11 @@ ansible_ssh_common_args: >-
         }
 
         stage('Deployment Summary') {
-            when {
-                expression { params.ACTION == 'APPLY' }
-            }
+            when { expression { params.ACTION == 'APPLY' } }
             steps {
                 dir(env.TF_DIR) {
                     script {
-                        def bastion = sh(
-                            script: 'terraform output -raw bastion_public_ip',
-                            returnStdout: true
-                        ).trim()
-                        def monitoring = sh(
-                            script: 'terraform output -raw monitoring_private_ip',
-                            returnStdout: true
-                        ).trim()
-                        def app1 = sh(
-                            script: 'terraform output -raw app_server_1_private_ip',
-                            returnStdout: true
-                        ).trim()
-                        def app2 = sh(
-                            script: 'terraform output -raw app_server_2_private_ip',
-                            returnStdout: true
-                        ).trim()
-
-                        sh """
-                            echo "Deployment Summary:"
-                            echo "Bastion: ${bastion}"
-                            echo "Monitoring: ${monitoring}"
-                            echo "App1: ${app1}"
-                            echo "App2: ${app2}"
-                        """
-                    }
-                }
-            }
-        }
-    }
-}
+                        def bastion = sh(script: 'terraform output -raw bastion_public_ip', returnStdout: true).trim()
+                        def monitoring = sh(script: 'terraform output -raw monitoring_private_ip', returnStdout: true).trim()
+                        def app1 = sh(script: 'terraform output -raw app_server_1_private_ip', returnStdout: true).trim()
+                        def app2 = sh(script: 'terraform output -raw app_server_2
