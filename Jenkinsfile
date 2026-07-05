@@ -147,7 +147,70 @@ pipeline {
                 }
             }
         }
-        stage('Copy PEM to Bastion') {
+       
+        stage('Terraform Destroy') {
+            when { expression { params.ACTION == 'DESTROY' } }
+            steps {
+                dir('terraform') {
+                    script {
+                        if (params.AUTO_APPROVE) {
+                            sh 'terraform destroy -auto-approve'
+                        } else {
+                            sh 'terraform destroy'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Ansible Inventory') {
+            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
+            steps {
+                sshagent(credentials: ['ec2-key-one-click']) {
+                    dir('ansible') {
+                        sh 'ansible-inventory --graph'
+                    }
+                }
+            }
+        }
+
+        stage('Ansible Ping') {
+            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
+            steps {
+                sshagent(credentials: ['ec2-key-one-click']) {
+                    dir('ansible') {
+                        sh 'ansible all -m ping'
+                    }
+                }
+            }
+        }
+
+        stage('Run Playbook') {
+            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
+            steps {
+                sshagent(credentials: ['ec2-key-one-click']) {
+                    dir('ansible') {
+                        sh 'ansible-playbook playbooks/site.yml'
+                    }
+                }
+            }
+        }
+
+        stage('Verify Services') {
+            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
+            steps {
+                sshagent(credentials: ['ec2-key-one-click']) {
+                    dir('ansible') {
+                        sh '''
+                            ansible monitoring -m shell -a "systemctl is-active prometheus"
+                            ansible monitoring -m shell -a "systemctl is-active grafana-server"
+                            ansible node_exporter -m shell -a "systemctl is-active node_exporter"
+                        '''
+                    }
+                }
+            }
+        }
+ stage('Copy PEM to Bastion') {
 
     when {
         expression {
@@ -213,69 +276,6 @@ EOF
     }
 
 }
-        stage('Terraform Destroy') {
-            when { expression { params.ACTION == 'DESTROY' } }
-            steps {
-                dir('terraform') {
-                    script {
-                        if (params.AUTO_APPROVE) {
-                            sh 'terraform destroy -auto-approve'
-                        } else {
-                            sh 'terraform destroy'
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Ansible Inventory') {
-            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
-            steps {
-                sshagent(credentials: ['ec2-key-one-click']) {
-                    dir('ansible') {
-                        sh 'ansible-inventory --graph'
-                    }
-                }
-            }
-        }
-
-        stage('Ansible Ping') {
-            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
-            steps {
-                sshagent(credentials: ['ec2-key-one-click']) {
-                    dir('ansible') {
-                        sh 'ansible all -m ping'
-                    }
-                }
-            }
-        }
-
-        stage('Run Playbook') {
-            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
-            steps {
-                sshagent(credentials: ['ec2-key-one-click']) {
-                    dir('ansible') {
-                        sh 'ansible-playbook playbooks/site.yml'
-                    }
-                }
-            }
-        }
-
-        stage('Verify Services') {
-            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
-            steps {
-                sshagent(credentials: ['ec2-key-one-click']) {
-                    dir('ansible') {
-                        sh '''
-                            ansible monitoring -m shell -a "systemctl is-active prometheus"
-                            ansible monitoring -m shell -a "systemctl is-active grafana-server"
-                            ansible node_exporter -m shell -a "systemctl is-active node_exporter"
-                        '''
-                    }
-                }
-            }
-        }
-
         stage('Deployment Summary') {
             when { expression { params.ACTION == 'APPLY' } }
             steps {
