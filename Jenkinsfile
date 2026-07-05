@@ -201,43 +201,142 @@ ansible_ssh_common_args: >-
         }
 
         stage('Ansible Connectivity Test') {
-            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
-            steps {
-                sshagent(credentials: [env.SSH_CREDENTIAL]) {
-                    script {
-                        def bastion = ""
-                        dir(env.TF_DIR) {
-                            bastion = sh(
-                                script: "terraform output -raw bastion_public_ip",
-                                returnStdout: true
-                            ).trim()
-                        }
-                        echo "Bastion IP: ${bastion}"
-                        dir(env.ANSIBLE_DIR) {
-                            sh """
-                                . ${env.VENV}/bin/activate
-                                ${env.ANSIBLE} all -e 'ansible_ssh_common_args=-o ProxyJump=ubuntu@${bastion}' -m ping -vvvv
-                            """
-                        }
-                    }
-                }
-            }
+
+    when {
+        expression {
+            params.ACTION == 'APPLY' && params.RUN_ANSIBLE
         }
+    }
+
+    steps {
+
+        sshagent(credentials: [env.SSH_CREDENTIAL]) {
+
+            script {
+
+                dir(env.TF_DIR) {
+                    env.BASTION_IP = sh(
+                        script: "terraform output -raw bastion_public_ip",
+                        returnStdout: true
+                    ).trim()
+                }
+
+                echo "Using Bastion IP: ${env.BASTION_IP}"
+
+                dir(env.ANSIBLE_DIR) {
+
+                    sh """
+                    ansible all \
+                      -e "ansible_ssh_common_args=-o ProxyJump=ubuntu@${env.BASTION_IP}" \
+                      -m ping \
+                      -vvvv
+                    """
+
+                }
+
+            }
+
+        }
+
+    }
+
+}
 
         stage('Configure Infrastructure') {
-            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
-            steps {
-                sshagent(credentials: [env.SSH_CREDENTIAL]) {
-                    dir(env.ANSIBLE_DIR) {
-                        sh """
-                            . ${env.VENV}/bin/activate
-                            ${env.ANSIBLE} playbooks/site.yml -e 'ansible_ssh_common_args=-o ProxyJump=ubuntu@${env.BASTION_IP}'
-                        """
-                    }
+
+    when {
+        expression {
+            params.ACTION == 'APPLY' && params.RUN_ANSIBLE
+        }
+    }
+
+    steps {
+
+        sshagent(credentials: [env.SSH_CREDENTIAL]) {
+
+            script {
+
+                dir(env.TF_DIR) {
+                    env.BASTION_IP = sh(
+                        script: "terraform output -raw bastion_public_ip",
+                        returnStdout: true
+                    ).trim()
                 }
+
+                dir(env.ANSIBLE_DIR) {
+
+                    sh """
+                    ansible-playbook playbooks/site.yml \
+                      -e "ansible_ssh_common_args=-o ProxyJump=ubuntu@${env.BASTION_IP}"
+                    """
+
+                }
+
             }
+
         }
 
+    }
+
+}
+stage('Verify Services') {
+
+    when {
+        expression {
+            params.ACTION == 'APPLY' && params.RUN_ANSIBLE
+        }
+    }
+
+    steps {
+
+        sshagent(credentials: [env.SSH_CREDENTIAL]) {
+
+            script {
+
+                dir(env.TF_DIR) {
+                    env.BASTION_IP = sh(
+                        script: "terraform output -raw bastion_public_ip",
+                        returnStdout: true
+                    ).trim()
+                }
+
+                dir(env.ANSIBLE_DIR) {
+
+                    sh """
+                    echo "==============================="
+                    echo "VERIFYING SERVICES"
+                    echo "==============================="
+
+                    ansible monitoring \
+                      -e "ansible_ssh_common_args=-o ProxyJump=ubuntu@${env.BASTION_IP}" \
+                      -m shell \
+                      -a "systemctl is-active prometheus"
+
+                    ansible monitoring \
+                      -e "ansible_ssh_common_args=-o ProxyJump=ubuntu@${env.BASTION_IP}" \
+                      -m shell \
+                      -a "systemctl is-active grafana-server"
+
+                    ansible node_exporter \
+                      -e "ansible_ssh_common_args=-o ProxyJump=ubuntu@${env.BASTION_IP}" \
+                      -m shell \
+                      -a "systemctl is-active node_exporter"
+
+                    ansible bastion \
+                      -m shell \
+                      -a "systemctl is-active nginx"
+                    """
+
+                }
+
+            }
+
+        }
+
+    }
+
+}
+        
         stage('Copy PEM to Bastion') {
             when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
             steps {
