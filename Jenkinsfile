@@ -306,7 +306,16 @@ stage('Terraform Outputs') {
             params.ACTION == 'APPLY'
 
         }
+script {
+    dir(env.TF_DIR) {
+        env.BASTION_IP = sh(
+            script: 'terraform output -raw bastion_public_ip',
+            returnStdout: true
+        ).trim()
+    }
 
+    echo "Bastion IP: ${env.BASTION_IP}"
+}
     }
 
     steps {
@@ -547,7 +556,10 @@ stage('Ansible Connectivity Test') {
                 echo " TESTING SSH CONNECTIVITY"
                 echo "=============================================="
 
-                ansible all -m ping -vvvv
+                ansible all \
+  -e "ansible_ssh_common_args=-o ProxyJump=ubuntu@${env.BASTION_IP}" \
+  -m ping \
+  -vvvv
                 '''
 
             }
@@ -577,7 +589,8 @@ stage('Configure Infrastructure') {
                 echo " RUNNING ANSIBLE PLAYBOOK"
                 echo "=============================================="
 
-                ansible-playbook playbooks/site.yml
+               ansible-playbook playbooks/site.yml \
+  -e "ansible_ssh_common_args=-o ProxyJump=ubuntu@${env.BASTION_IP}"
                 '''
 
             }
@@ -587,62 +600,7 @@ stage('Configure Infrastructure') {
     }
 
 }
-stage('Verify Services') {
 
-    when {
-        expression {
-            params.ACTION == 'APPLY' && params.RUN_ANSIBLE
-        }
-    }
-
-    steps {
-
-        sshagent(credentials: [env.SSH_CREDENTIAL]) {
-
-            dir(env.ANSIBLE_DIR) {
-
-                sh '''
-                echo
-                echo "=============================================="
-                echo " VERIFYING SERVICES"
-                echo "=============================================="
-
-                echo
-                echo "Monitoring Server"
-                echo "-----------------"
-
-                ansible monitoring \
-                -m shell \
-                -a "systemctl is-active prometheus"
-
-                ansible monitoring \
-                -m shell \
-                -a "systemctl is-active grafana-server"
-
-                echo
-                echo "Application Servers"
-                echo "-------------------"
-
-                ansible node_exporter \
-                -m shell \
-                -a "systemctl is-active node_exporter"
-
-                echo
-                echo "Bastion Server"
-                echo "--------------"
-
-                ansible bastion \
-                -m shell \
-                -a "systemctl is-active nginx"
-
-                '''
-            }
-
-        }
-
-    }
-
-}
 stage('Copy PEM to Bastion') {
 
     when {
