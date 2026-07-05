@@ -326,6 +326,48 @@ stage('Terraform Outputs') {
     }
 
 }
+stage('Generate Ansible Variables') {
+
+    when {
+        expression {
+            params.ACTION == 'APPLY'
+        }
+    }
+
+    steps {
+
+        script {
+
+            dir(env.TF_DIR) {
+
+                env.BASTION_IP = sh(
+                    script: 'terraform output -raw bastion_public_ip',
+                    returnStdout: true
+                ).trim()
+
+            }
+
+            writeFile(
+                file: "${env.ANSIBLE_DIR}/vars/generated.yml",
+                text: """
+bastion_ip: ${env.BASTION_IP}
+
+ansible_ssh_common_args: >-
+  -o ProxyJump=ubuntu@${env.BASTION_IP}
+"""
+            )
+
+            echo "Generated ansible/group_vars/generated/bastion.yml"
+
+            sh """
+            cat ${env.ANSIBLE_DIR}/group_vars/generated/bastion.yml
+            """
+
+        }
+
+    }
+
+}        
 
 stage('Terraform Destroy') {
 
