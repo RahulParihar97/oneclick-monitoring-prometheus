@@ -23,9 +23,6 @@ pipeline {
 
         stage('Checkout Source') {
             steps {
-                echo "=============================================="
-                echo " Checking out source code"
-                echo "=============================================="
                 checkout scm
             }
         }
@@ -33,9 +30,6 @@ pipeline {
         stage('Show Build Parameters') {
             steps {
                 sh """
-                echo "=============================================="
-                echo " BUILD PARAMETERS"
-                echo "=============================================="
                 echo "Action          : ${params.ACTION}"
                 echo "Auto Approve    : ${params.AUTO_APPROVE}"
                 echo "Run Ansible     : ${params.RUN_ANSIBLE}"
@@ -45,14 +39,7 @@ pipeline {
 
         stage('Verify Workspace') {
             steps {
-                sh """
-                echo "=============================================="
-                echo " WORKSPACE"
-                echo "=============================================="
-                pwd
-                ls -lah
-                tree -L 2 || true
-                """
+                sh "pwd && ls -lah && tree -L 2 || true"
             }
         }
 
@@ -298,4 +285,12 @@ ansible_ssh_common_args: >-
                         def app2 = sh(script: 'terraform output -raw app_server_2_private_ip', returnStdout: true).trim()
                         sh """
                         echo "Deployment Summary:"
-                        echo "Bastion: ${
+                        echo "Bastion: ${bastion}"
+                        echo "Monitoring: ${monitoring}"
+                        echo "App1: ${app1}"
+                        echo "App2: ${app2}"
+                        """
+                    }
+                }
+            }
+        }
