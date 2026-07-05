@@ -151,7 +151,7 @@ pipeline {
 
     when {
         expression {
-            params.ACTION == 'APPLY' && params.RUN_ANSIBLE
+            params.ACTION == 'APPLY'
         }
     }
 
@@ -175,23 +175,35 @@ pipeline {
                 ]) {
 
                     sh """
-                        echo "Copying PEM file to Bastion..."
+                    echo "===================================================="
+                    echo "        COPYING SSH KEY TO BASTION SERVER"
+                    echo "===================================================="
 
-                        scp \
+                    ssh -i \$SSH_KEY \
                         -o StrictHostKeyChecking=no \
-                        -i \$SSH_KEY \
-                        \$SSH_KEY \
-                        \$SSH_USER@${bastion}:/home/\$SSH_USER/ansible-demo.pem
-
-                        ssh \
-                        -o StrictHostKeyChecking=no \
-                        -i \$SSH_KEY \
                         \$SSH_USER@${bastion} \
-                        "chmod 400 ~/ansible-demo.pem"
+                        "rm -f ~/ansible-demo.pem"
 
-                        echo "PEM copied successfully."
+                    scp -i \$SSH_KEY \
+                        -o StrictHostKeyChecking=no \
+                        \$SSH_KEY \
+                        \$SSH_USER@${bastion}:/tmp/ansible-demo.pem
+
+                    ssh -i \$SSH_KEY \
+                        -o StrictHostKeyChecking=no \
+                        \$SSH_USER@${bastion} <<EOF
+
+mv /tmp/ansible-demo.pem ~/ansible-demo.pem
+chmod 400 ~/ansible-demo.pem
+
+echo
+echo "===================================================="
+echo "        SSH KEY COPIED SUCCESSFULLY"
+echo "===================================================="
+ls -l ~/ansible-demo.pem
+
+EOF
                     """
-
                 }
 
             }
@@ -201,7 +213,6 @@ pipeline {
     }
 
 }
-
         stage('Terraform Destroy') {
             when { expression { params.ACTION == 'DESTROY' } }
             steps {
