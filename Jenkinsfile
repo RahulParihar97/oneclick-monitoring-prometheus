@@ -398,40 +398,83 @@ Host *
             }
         }
 
-        stage('Deployment Summary') {
-            when {
-                expression { params.ACTION == 'APPLY' }
-            }
-            steps {
-                dir(env.TF_DIR) {
-                    script {
-                        def bastion = sh(
-                            script: 'terraform output -raw bastion_public_ip',
-                            returnStdout: true
-                        ).trim()
-                        def monitoring = sh(
-                            script: 'terraform output -raw monitoring_private_ip',
-                            returnStdout: true
-                        ).trim()
-                        def app1 = sh(
-                            script: 'terraform output -raw app_server_1_private_ip',
-                            returnStdout: true
-                        ).trim()
-                        def app2 = sh(
-                            script: 'terraform output -raw app_server_2_private_ip',
-                            returnStdout: true
-                        ).trim()
+       stage('Deployment Summary') {
 
-                        sh """
-                            echo "Deployment Summary:"
-                            echo "Bastion: ${bastion}"
-                            echo "Monitoring: ${monitoring}"
-                            echo "App1: ${app1}"
-                            echo "App2: ${app2}"
-                        """
-                    }
-                }
-            }
+    when {
+        expression {
+            params.ACTION == 'APPLY'
         }
+    }
+
+    steps {
+
+        dir(env.TF_DIR) {
+
+            script {
+
+                env.BASTION_IP = sh(
+                    script: 'terraform output -raw bastion_public_ip',
+                    returnStdout: true
+                ).trim()
+
+                env.MONITORING_IP = sh(
+                    script: 'terraform output -raw monitoring_private_ip',
+                    returnStdout: true
+                ).trim()
+
+            }
+
+            sh """
+echo
+echo "========================================================================================"
+echo "                    🚀 ONE CLICK MONITORING DEPLOYMENT SUCCESSFUL 🚀"
+echo "========================================================================================"
+echo
+echo "Infrastructure Status"
+echo "---------------------"
+echo "✓ Terraform Apply          : SUCCESS"
+echo "✓ Dynamic Inventory        : SUCCESS"
+echo "✓ Ansible Configuration    : SUCCESS"
+echo "✓ Prometheus Deployment    : SUCCESS"
+echo "✓ Grafana Deployment       : SUCCESS"
+echo "✓ Nginx Reverse Proxy      : CONFIGURED"
+echo
+echo "AWS Resources"
+echo "-------------"
+echo "Bastion Public IP      : ${env.BASTION_IP}"
+echo "Monitoring Private IP  : ${env.MONITORING_IP}"
+echo
+echo "========================================================================================"
+echo "TO ACCESS PROMETHEUS & GRAFANA FROM YOUR LOCAL MACHINE"
+echo "========================================================================================"
+echo
+echo "Run the following command in a NEW terminal:"
+echo
+echo "ssh -i ansible/ansible-demo.pem \\\\"
+echo "    -o StrictHostKeyChecking=no \\\\"
+echo "    -L 9090:${env.MONITORING_IP}:9090 \\\\"
+echo "    -L 3000:${env.MONITORING_IP}:3000 \\\\"
+echo "    ubuntu@${env.BASTION_IP}"
+echo
+echo "Keep that SSH session open."
+echo
+echo "Then open the following URLs in your browser:"
+echo
+echo "Prometheus : http://localhost:9090"
+echo "Grafana    : http://localhost:3000"
+echo
+echo "Default Grafana Credentials"
+echo "---------------------------"
+echo "Username : admin"
+echo "Password : admin"
+echo
+echo "========================================================================================"
+"""
+
+        }
+
+    }
+
+}
     }
 }
