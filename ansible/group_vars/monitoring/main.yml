@@ -1,0 +1,3 @@
+---
+ansible_ssh_common_args: >-
+  -o ProxyJump=ubuntu@{{ hostvars['bastion-server'].ansible_host }}
