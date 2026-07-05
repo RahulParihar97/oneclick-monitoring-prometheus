@@ -119,20 +119,28 @@ pipeline {
         }
 
         stage('Terraform Outputs') {
-            when { expression { params.ACTION == 'APPLY' } }
-            steps {
-                script {
-                    dir(env.TF_DIR) {
-                        env.BASTION_IP = sh(
-                            script: 'terraform output -raw bastion_public_ip',
-                            returnStdout: true
-                        ).trim()
-                    }
-                    echo "Bastion IP: ${env.BASTION_IP}"
-                    sh "terraform output"
-                }
+    when {
+        expression { params.ACTION == 'APPLY' }
+    }
+    steps {
+        script {
+            dir(env.TF_DIR) {
+                env.BASTION_IP = sh(
+                    script: 'terraform output -raw bastion_public_ip',
+                    returnStdout: true
+                ).trim()
             }
+            echo "Bastion IP: ${env.BASTION_IP}"
+            sh '''
+            echo "=============================================="
+            echo " TERRAFORM OUTPUTS"
+            echo "=============================================="
+            terraform output
+            '''
         }
+    }
+}
+
 
         stage('Generate Ansible Variables') {
             when { expression { params.ACTION == 'APPLY' } }
