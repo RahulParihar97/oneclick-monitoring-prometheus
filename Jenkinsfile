@@ -14,13 +14,10 @@ pipeline {
     }
 
     environment {
-        TF_DIR = 'terraform'
-        ANSIBLE_DIR = 'ansible'
-        SSH_CREDENTIAL = 'ec2-key-one-click'
-        VENV = "/var/lib/jenkins/venvs/ansible"
-        ANSIBLE = "${VENV}/bin/ansible-playbook"
-        INVENTORY = "${VENV}/bin/ansible-inventory"
-    }
+    TF_DIR = 'terraform'
+    ANSIBLE_DIR = 'ansible'
+    SSH_CREDENTIAL = 'ec2-key-one-click'
+}
 
     stages {
         stage('Checkout Source') {
@@ -153,39 +150,7 @@ pipeline {
             }
         }
 
-        stage('Generate Ansible Variables') {
-            when {
-                expression { params.ACTION == 'APPLY' }
-            }
-            steps {
-                script {
-                    dir(env.TF_DIR) {
-                        env.BASTION_IP = sh(
-                            script: 'terraform output -raw bastion_public_ip',
-                            returnStdout: true
-                        ).trim()
-                    }
-
-                    writeFile(
-                        file: "${env.ANSIBLE_DIR}/group_vars/all.yml",
-                        text: """
-ansible_user: ubuntu
-prometheus_version: "2.54.0"
-grafana_version: "11.1.0"
-node_exporter_version: "1.8.1"
-prometheus_port: 9090
-grafana_port: 3000
-node_exporter_port: 9100
-ansible_ssh_common_args: >-
-  -o ProxyJump=ubuntu@${env.BASTION_IP}
-"""
-                    )
-
-                    sh "cat ${env.ANSIBLE_DIR}/group_vars/all.yml"
-                }
-            }
-        }
-
+        
         stage('Terraform Destroy') {
             when {
                 expression { params.ACTION == 'DESTROY' }
@@ -243,9 +208,9 @@ ansible_ssh_common_args: >-
                 sshagent(credentials: [env.SSH_CREDENTIAL]) {
                     dir(env.ANSIBLE_DIR) {
                         sh """
-                            . ${env.VENV}/bin/activate
-                            ${env.INVENTORY} --graph
-                            ${env.INVENTORY} --list > inventory.json
+                            ansible --version
+                            ansible-inventory --graph
+                            ansible-inventory --list > inventory.json
                         """
                     }
                 }
