@@ -548,19 +548,34 @@ stage('Ansible Connectivity Test') {
 
         sshagent(credentials: [env.SSH_CREDENTIAL]) {
 
-            dir(env.ANSIBLE_DIR) {
+            script {
 
-                sh '''
-                echo
-                echo "=============================================="
-                echo " TESTING SSH CONNECTIVITY"
-                echo "=============================================="
+                def bastion = ""
 
-                ansible all \
-  -e "ansible_ssh_common_args=-o ProxyJump=ubuntu@${env.BASTION_IP}" \
-  -m ping \
-  -vvvv
-                '''
+                dir(env.TF_DIR) {
+                    bastion = sh(
+                        script: "terraform output -raw bastion_public_ip",
+                        returnStdout: true
+                    ).trim()
+                }
+
+                echo "Bastion IP: ${bastion}"
+
+                dir(env.ANSIBLE_DIR) {
+
+                    sh """
+                    echo
+                    echo "=============================================="
+                    echo " TESTING SSH CONNECTIVITY"
+                    echo "=============================================="
+
+                    ansible all \
+                      -e 'ansible_ssh_common_args=-o ProxyJump=ubuntu@${bastion}' \
+                      -m ping \
+                      -vvvv
+                    """
+
+                }
 
             }
 
