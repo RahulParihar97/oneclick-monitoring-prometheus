@@ -1,7 +1,6 @@
 server {
 
     listen 80 default_server;
-
     server_name _;
 
     #######################################################
@@ -10,7 +9,7 @@ server {
 
     location /grafana/ {
 
-        proxy_pass http://{{ hostvars['monitoring-server'].ansible_host }}:3000/;
+        proxy_pass http://{{ hostvars['monitoring-server'].ansible_host }}:3000;
 
         proxy_http_version 1.1;
 
@@ -33,7 +32,7 @@ server {
 
     location /prometheus/ {
 
-        proxy_pass http://{{ hostvars['monitoring-server'].ansible_host }}:9090/;
+        proxy_pass http://{{ hostvars['monitoring-server'].ansible_host }}:9090;
 
         proxy_http_version 1.1;
 
