@@ -185,16 +185,21 @@ pipeline {
             }
         }
 
-        stage('Run Playbook') {
-            when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
-            steps {
-                sshagent(credentials: ['ec2-key-one-click']) {
-                    dir('ansible') {
-                        sh 'ansible-playbook playbooks/site.yml'
-                    }
-                }
+       stage('Run Playbook') {
+    steps {
+        sshagent(credentials: ['ec2-key-one-click']) {
+            dir('ansible') {
+                sh '''
+                BASTION_IP=$(terraform -chdir=../terraform output -raw bastion_public_ip)
+
+                ansible-playbook \
+                  -e "bastion_ip=$BASTION_IP" \
+                  playbooks/site.yml
+                '''
             }
         }
+    }
+}
 
         stage('Verify Services') {
             when { expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE } }
