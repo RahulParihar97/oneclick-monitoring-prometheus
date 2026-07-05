@@ -1,50 +1,25 @@
 #SPDX-License-Identifier: MIT-0
-# tasks file for roles/grafana
 ---
+# tasks file for roles/grafana
+
 - name: Install required packages
   apt:
     name:
       - wget
-      - gpg
+      - gdebi-core
+    update_cache: yes
     state: present
-    update_cache: yes
 
-- name: Create keyrings directory
-  file:
-    path: /etc/apt/keyrings
-    state: directory
-    mode: '0755'
-
-- name: Download Grafana GPG key
-  shell: |
-    wget -q -O - https://apt.grafana.com/gpg.key | gpg --dearmor -o /etc/apt/keyrings/grafana.gpg
-  args:
-    creates: /etc/apt/keyrings/grafana.gpg
-
-- name: Add Grafana repository
-  copy:
-    dest: /etc/apt/sources.list.d/grafana.list
-    content: |
-      deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main
-
-- name: Update apt cache
-  apt:
-    update_cache: yes
+- name: Download Grafana OSS 11.6.1
+  get_url:
+    url: https://dl.grafana.com/oss/release/grafana_11.6.1_amd64.deb
+    dest: /tmp/grafana_11.6.1_amd64.deb
+    mode: "0644"
+    force: no
 
 - name: Install Grafana
   apt:
-    name: grafana
-    state: present
-
-- name: Enable Grafana
-  systemd:
-    name: grafana-server
-    enabled: yes
-
-- name: Start Grafana
-  systemd:
-    name: grafana-server
-    state: started
+    deb: /tmp/grafana_11.6.1_amd64.deb
 
 - name: Configure Grafana
   template:
@@ -59,11 +34,17 @@
   file:
     path: /etc/grafana/provisioning/datasources
     state: directory
+    owner: grafana
+    group: grafana
+    mode: "0755"
 
 - name: Deploy datasource
   copy:
     src: provisioning/datasources/datasource.yml
     dest: /etc/grafana/provisioning/datasources/datasource.yml
+    owner: grafana
+    group: grafana
+    mode: "0644"
   notify: restart grafana
 
 - name: Create dashboard directory
@@ -72,12 +53,15 @@
     state: directory
     owner: grafana
     group: grafana
-    mode: '0755'
+    mode: "0755"
 
 - name: Copy dashboard provider
   template:
     src: dashboard-provider.yml.j2
     dest: /etc/grafana/provisioning/dashboards/default.yml
+    owner: root
+    group: grafana
+    mode: "0644"
   notify: restart grafana
 
 - name: Copy Node Exporter Dashboard
@@ -86,5 +70,15 @@
     dest: /var/lib/grafana/dashboards/node-exporter-full.json
     owner: grafana
     group: grafana
-    mode: '0644'
+    mode: "0644"
   notify: restart grafana
+
+- name: Enable Grafana
+  systemd:
+    name: grafana-server
+    enabled: yes
+
+- name: Start Grafana
+  systemd:
+    name: grafana-server
+    state: started

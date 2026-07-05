@@ -1,7 +1,13 @@
 #SPDX-License-Identifier: MIT-0
 ---
 # handlers file for roles/grafana
+#SPDX-License-Identifier: MIT-0
+# handlers file for roles/grafana
+
 - name: restart grafana
+
   systemd:
     name: grafana-server
+    daemon_reload: yes
+    enabled: yes
     state: restarted
