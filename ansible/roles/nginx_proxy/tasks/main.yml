@@ -12,5 +12,8 @@
     owner: root
     group: root
     mode: "0644"
-    validate: "nginx -t -c %s"
   notify: restart nginx
+
+- name: Validate nginx configuration
+  command: nginx -t
+  changed_when: false
