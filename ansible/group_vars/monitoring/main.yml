@@ -1,2 +1,0 @@
-ansible_ssh_common_args: >-
-  -o ProxyJump=ubuntu@13.207.195.19
