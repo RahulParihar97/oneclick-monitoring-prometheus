@@ -196,7 +196,7 @@ pipeline {
                 expression { params.ACTION == 'APPLY' }
             }
             steps {
-                sleep time: 120, unit: 'SECONDS'
+                sleep time: 60, unit: 'SECONDS'
             }
         }
 
