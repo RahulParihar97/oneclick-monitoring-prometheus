@@ -1,0 +1,60 @@
+---
+- name: Create alertmanager group
+  group:
+    name: "{{ alertmanager_group }}"
+    system: true
+
+- name: Create alertmanager user
+  user:
+    name: "{{ alertmanager_user }}"
+    group: "{{ alertmanager_group }}"
+    shell: /usr/sbin/nologin
+    system: true
+    create_home: false
+
+- name: Create Alertmanager directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ alertmanager_user }}"
+    group: "{{ alertmanager_group }}"
+    mode: '0755'
+  loop:
+    - /etc/alertmanager
+    - /var/lib/alertmanager
+
+- name: Download Alertmanager
+  get_url:
+    url: "{{ alertmanager_download_url }}"
+    dest: /tmp/alertmanager.tar.gz
+    mode: '0644'
+
+- name: Extract Alertmanager
+  unarchive:
+    src: /tmp/alertmanager.tar.gz
+    dest: /tmp
+    remote_src: true
+
+- name: Install alertmanager binary
+  copy:
+    src: "/tmp/alertmanager-{{ alertmanager_version }}.linux-amd64/alertmanager"
+    dest: /usr/local/bin/alertmanager
+    mode: '0755'
+    remote_src: true
+
+- name: Install amtool binary
+  copy:
+    src: "/tmp/alertmanager-{{ alertmanager_version }}.linux-amd64/amtool"
+    dest: /usr/local/bin/amtool
+    mode: '0755'
+    remote_src: true
+
+- name: Remove temporary files
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/alertmanager.tar.gz
+    - "/tmp/alertmanager-{{ alertmanager_version }}.linux-amd64"
+
+

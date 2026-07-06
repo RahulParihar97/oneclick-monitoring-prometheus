@@ -1,6 +1,4 @@
-#SPDX-License-Identifier: MIT-0
 ---
-# tasks file for roles/prometheus
 - name: Install dependencies
   package:
     name:
@@ -8,13 +6,20 @@
       - tar
     state: present
 
+- name: Create prometheus group
+  group:
+    name: prometheus
+    system: true
+
 - name: Create prometheus user
   user:
     name: prometheus
-    shell: /sbin/nologin
+    group: prometheus
+    shell: /usr/sbin/nologin
     create_home: false
+    system: true
 
-- name: Create directories
+- name: Create Prometheus directories
   file:
     path: "{{ item }}"
     state: directory
@@ -23,41 +28,93 @@
     mode: '0755'
   loop:
     - /etc/prometheus
+    - /etc/prometheus/rules
     - /var/lib/prometheus
 
 - name: Download Prometheus
   get_url:
     url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
     dest: /tmp/prometheus.tar.gz
+    mode: '0644'
 
 - name: Extract Prometheus
   unarchive:
     src: /tmp/prometheus.tar.gz
     dest: /tmp
-    remote_src: yes
+    remote_src: true
 
-- name: Copy Prometheus binary
+# -----------------------------
+# Install Prometheus binary
+# -----------------------------
+- name: Install Prometheus binary
   copy:
     src: "/tmp/prometheus-{{ prometheus_version }}.linux-amd64/prometheus"
     dest: /usr/local/bin/prometheus
-    remote_src: yes
+    remote_src: true
+    mode: '0755'
+  notify: Restart Prometheus
+
+# -----------------------------
+# Install Promtool
+# -----------------------------
+- name: Install Promtool
+  copy:
+    src: "/tmp/prometheus-{{ prometheus_version }}.linux-amd64/promtool"
+    dest: /usr/local/bin/promtool
+    remote_src: true
     mode: '0755'
 
-- name: Deploy prometheus config
+# -----------------------------
+# Deploy Prometheus configuration
+# -----------------------------
+- name: Deploy prometheus.yml
   template:
     src: prometheus.yml.j2
     dest: /etc/prometheus/prometheus.yml
-  notify: restart prometheus
+    owner: prometheus
+    group: prometheus
+    mode: '0644'
+  notify: Restart Prometheus
 
-- name: Deploy systemd service
+# -----------------------------
+# Deploy Alert Rules
+# -----------------------------
+- name: Deploy alert rules
+  template:
+    src: node_alerts.yml.j2
+    dest: /etc/prometheus/rules/node_alerts.yml
+    owner: prometheus
+    group: prometheus
+    mode: '0644'
+  notify: Restart Prometheus
+
+# -----------------------------
+# Deploy Systemd Service
+# -----------------------------
+- name: Deploy Prometheus systemd service
   template:
     src: prometheus.service.j2
     dest: /etc/systemd/system/prometheus.service
-  notify: restart prometheus
+    mode: '0644'
+  notify: Restart Prometheus
 
-- name: Start Prometheus
+# -----------------------------
+# Enable & Start Service
+# -----------------------------
+- name: Enable and start Prometheus
   systemd:
     name: prometheus
     enabled: true
     state: started
     daemon_reload: true
+
+# -----------------------------
+# Cleanup
+# -----------------------------
+- name: Remove temporary files
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/prometheus.tar.gz
+    - "/tmp/prometheus-{{ prometheus_version }}.linux-amd64"

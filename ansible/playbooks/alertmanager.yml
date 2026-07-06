@@ -1,0 +1,12 @@
+---
+- name: Install Alertmanager
+  hosts: monitoring
+  become: true
+
+  pre_tasks:
+    - name: Show alertmanager_group
+      debug:
+        var: alertmanager_group
+
+  roles:
+    - alertmanager

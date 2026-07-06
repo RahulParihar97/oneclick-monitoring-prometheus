@@ -1,0 +1,12 @@
+#SPDX-License-Identifier: MIT-0
+
+# defaults file for roles/alertmanager
+---
+alertmanager_version: "0.28.1"
+
+alertmanager_user: alertmanager
+alertmanager_group: alertmanager
+
+alertmanager_port: 9093
+
+alertmanager_download_url: "https://github.com/prometheus/alertmanager/releases/download/v{{ alertmanager_version }}/alertmanager-{{ alertmanager_version }}.linux-amd64.tar.gz"

@@ -1,0 +1,8 @@
+#SPDX-License-Identifier: MIT-0
+---
+# handlers file for roles/alertmanager
+- name: restart Alertmanager
+  systemd:
+    name: alertmanager
+    daemon_reload: true
+    state: restarted

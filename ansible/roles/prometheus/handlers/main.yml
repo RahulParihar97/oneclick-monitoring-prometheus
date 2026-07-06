@@ -1,7 +1,7 @@
 #SPDX-License-Identifier: MIT-0
 ---
 # handlers file for roles/prometheus
-- name: restart prometheus
+- name: Restart Prometheus
   systemd:
     name: prometheus
     state: restarted

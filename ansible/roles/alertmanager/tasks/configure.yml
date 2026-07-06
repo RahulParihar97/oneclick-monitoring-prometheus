@@ -1,0 +1,9 @@
+---
+- name: Deploy Alertmanager configuration
+  template:
+    src: alertmanager.yml.j2
+    dest: /etc/alertmanager/alertmanager.yml
+    owner: "{{ alertmanager_user }}"
+    group: "{{ alertmanager_group }}"
+    mode: '0644'
+  notify: restart Alertmanager
