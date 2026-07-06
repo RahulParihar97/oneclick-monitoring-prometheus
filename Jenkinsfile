@@ -421,33 +421,69 @@ stage('Ansible Connectivity Test') {
 
 }
 
-        stage('Copy PEM to Bastion') {
-            when {
-                expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
-            }
-            steps {
-                dir(env.TF_DIR) {
-                    script {
-                        def bastion = sh(
-                            script: 'terraform output -raw bastion_public_ip',
-                            returnStdout: true
-                        ).trim()
+       stage('Copy PEM to Bastion & Monitoring') {
+    when {
+        expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
+    }
 
-                        withCredentials([sshUserPrivateKey(
-                            credentialsId: env.SSH_CREDENTIAL,
-                            keyFileVariable: 'SSH_KEY',
-                            usernameVariable: 'SSH_USER'
-                        )]) {
-                            sh """
-                                ssh -o StrictHostKeyChecking=no -i \$SSH_KEY \$SSH_USER@${bastion} "rm -f ~/ansible-demo.pem"
-                                scp -o StrictHostKeyChecking=no -i \$SSH_KEY \$SSH_KEY \$SSH_USER@${bastion}:/tmp/ansible-demo.pem
-                                ssh -o StrictHostKeyChecking=no -i \$SSH_KEY \$SSH_USER@${bastion} "mv /tmp/ansible-demo.pem ~/ansible-demo.pem && chmod 400 ~/ansible-demo.pem"
-                            """
-                        }
-                    }
+    steps {
+        dir(env.TF_DIR) {
+            script {
+
+                def bastion = sh(
+                    script: 'terraform output -raw bastion_public_ip',
+                    returnStdout: true
+                ).trim()
+
+                def monitoring = sh(
+                    script: 'terraform output -raw monitoring_private_ip',
+                    returnStdout: true
+                ).trim()
+
+                withCredentials([sshUserPrivateKey(
+                    credentialsId: env.SSH_CREDENTIAL,
+                    keyFileVariable: 'SSH_KEY',
+                    usernameVariable: 'SSH_USER'
+                )]) {
+
+                    sh """
+                        echo "=============================================="
+                        echo " COPYING PEM TO BASTION"
+                        echo "=============================================="
+
+                        ssh -o StrictHostKeyChecking=no -i \$SSH_KEY \$SSH_USER@${bastion} \
+                            "rm -f ~/ansible-demo.pem"
+
+                        scp -o StrictHostKeyChecking=no -i \$SSH_KEY \
+                            \$SSH_KEY \
+                            \$SSH_USER@${bastion}:/tmp/ansible-demo.pem
+
+                        ssh -o StrictHostKeyChecking=no -i \$SSH_KEY \$SSH_USER@${bastion} \
+                            "mv /tmp/ansible-demo.pem ~/ansible-demo.pem && chmod 400 ~/ansible-demo.pem"
+
+                        echo "=============================================="
+                        echo " COPYING PEM TO MONITORING SERVER"
+                        echo "=============================================="
+
+                        ssh -o StrictHostKeyChecking=no -i \$SSH_KEY \$SSH_USER@${bastion} "
+                            scp -o StrictHostKeyChecking=no \
+                                -i ~/ansible-demo.pem \
+                                ~/ansible-demo.pem \
+                                ubuntu@${monitoring}:/tmp/ansible-demo.pem &&
+
+                            ssh -o StrictHostKeyChecking=no \
+                                -i ~/ansible-demo.pem \
+                                ubuntu@${monitoring} '
+                                    mv /tmp/ansible-demo.pem ~/ansible-demo.pem &&
+                                    chmod 400 ~/ansible-demo.pem
+                                '
+                        "
+                    """
                 }
             }
         }
+    }
+}
 
        stage('Deployment Summary') {
 
