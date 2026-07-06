@@ -13,3 +13,6 @@ output "app_server_2_private_ip" {
 output "monitoring_private_ip" {
   value = module.ec2.private_ips["monitoring-server"]
 }
+output "instance_ids" {
+  value = module.ec2.instance_ids
+}
