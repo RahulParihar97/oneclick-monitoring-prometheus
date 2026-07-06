@@ -124,7 +124,7 @@ pipeline {
         }
 stage('Wait for EC2 Health') {
     steps {
-        dir(env.TERRAFORM_DIR) {
+        dir(env.TF_DIR) {
             sh '''
             echo "Waiting for AWS EC2 Status Checks..."
 
