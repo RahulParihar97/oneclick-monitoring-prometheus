@@ -245,7 +245,7 @@ Host *
                 expression { params.ACTION == 'APPLY' }
             }
             steps {
-                sleep time: 120, unit: 'SECONDS'
+                sleep time: 240, unit: 'SECONDS'
             }
         }
 
@@ -450,7 +450,7 @@ echo "==========================================================================
 echo
 echo "Run the following command in a NEW terminal:"
 echo
-echo "ssh -i ansible/ansible-demo.pem \\\\"
+echo "   ssh -i ansible/ansible-demo.pem \\\\"
 echo "    -o StrictHostKeyChecking=no \\\\"
 echo "    -L 9090:${env.MONITORING_IP}:9090 \\\\"
 echo "    -L 3000:${env.MONITORING_IP}:3000 \\\\"
