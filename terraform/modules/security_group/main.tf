@@ -73,20 +73,7 @@ resource "aws_security_group" "app" {
     ]
 
   }
- # NEW - SSH from Monitoring Server
-  ingress {
-
-    description = "SSH from Monitoring Server"
-
-    from_port = 22
-    to_port   = 22
-    protocol  = "tcp"
-
-    security_groups = [
-      aws_security_group.monitoring.id
-    ]
-
-  }
+ 
   ingress {
 
     description = "Node Exporter"
