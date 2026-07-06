@@ -122,7 +122,21 @@ pipeline {
                 }
             }
         }
+stage('Wait for EC2 Health') {
+    steps {
+        dir(env.TERRAFORM_DIR) {
+            sh '''
+            echo "Waiting for EC2 instance status checks..."
 
+            INSTANCE_IDS=$(terraform output -json instance_ids | jq -r '.[]')
+
+            aws ec2 wait instance-status-ok --instance-ids $INSTANCE_IDS
+
+            echo "All EC2 instances passed AWS status checks."
+            '''
+        }
+    }
+}
         stage('Terraform Outputs') {
             when {
                 expression { params.ACTION == 'APPLY' }
