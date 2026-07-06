@@ -420,8 +420,7 @@ stage('Ansible Connectivity Test') {
     }
 
 }
-
-       stage('Copy PEM to Bastion & Monitoring') {
+stage('Copy PEM to Bastion & Monitoring') {
     when {
         expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
     }
