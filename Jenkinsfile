@@ -126,17 +126,50 @@ stage('Wait for EC2 Health') {
     steps {
         dir(env.TERRAFORM_DIR) {
             sh '''
-            echo "Waiting for EC2 instance status checks..."
+            echo "Waiting for AWS EC2 Status Checks..."
 
             INSTANCE_IDS=$(terraform output -json instance_ids | jq -r '.[]')
 
-            aws ec2 wait instance-status-ok --instance-ids $INSTANCE_IDS
+            aws ec2 wait instance-status-ok \
+                --instance-ids $INSTANCE_IDS
 
-            echo "All EC2 instances passed AWS status checks."
+            echo "All instances are healthy."
             '''
         }
     }
 }
+stage('Refresh Inventory') {
+    steps {
+        dir(env.ANSIBLE_DIR) {
+            sh '''
+            ansible-inventory \
+                -i inventories/aws_ec2.yml \
+                --graph
+            '''
+        }
+    }
+}
+stage('Wait for SSH') {
+
+    steps {
+
+        sshagent(credentials: [env.SSH_CREDENTIAL]) {
+
+            dir(env.ANSIBLE_DIR) {
+
+                sh '''
+                ansible all \
+                    -m wait_for_connection \
+                    -a "timeout=300 sleep=5 delay=10"
+                '''
+
+            }
+
+        }
+
+    }
+
+}        
         stage('Terraform Outputs') {
             when {
                 expression { params.ACTION == 'APPLY' }
@@ -213,7 +246,25 @@ Host *
     }
 
 }
-        
+stage('Verify Connectivity') {
+
+    steps {
+
+        sshagent(credentials: [env.SSH_CREDENTIAL]) {
+
+            dir(env.ANSIBLE_DIR) {
+
+                sh '''
+                ansible all -m ping
+                '''
+
+            }
+
+        }
+
+    }
+
+}        
         stage('Terraform Destroy') {
             when {
                 expression { params.ACTION == 'DESTROY' }
@@ -259,7 +310,7 @@ Host *
                 expression { params.ACTION == 'APPLY' }
             }
             steps {
-                sleep time: 240, unit: 'SECONDS'
+                sleep time: 30, unit: 'SECONDS'
             }
         }
 
@@ -322,12 +373,7 @@ Host *
     }
 
 }
-
-        stage('Configure Infrastructure') {
-
-    when {
-        expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
-    }
+stage('Configure Infrastructure') {
 
     steps {
 
@@ -337,10 +383,8 @@ Host *
 
                 sh '''
                 echo "=============================================="
-                echo " RUNNING PLAYBOOK"
+                echo "RUNNING PLAYBOOK"
                 echo "=============================================="
-
-                ansible all -m wait_for_connection -a "timeout=300"
 
                 ansible-playbook playbooks/site.yml
                 '''
@@ -352,6 +396,7 @@ Host *
     }
 
 }
+       
         stage('Verify Services') {
 
     when {
