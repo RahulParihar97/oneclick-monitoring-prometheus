@@ -59,7 +59,7 @@ resource "aws_security_group" "app" {
 
   }
 
- # NEW - SSH from Monitoring Server
+  # NEW - SSH from Monitoring Server
   ingress {
 
     description = "SSH from Monitoring Server"
@@ -73,7 +73,7 @@ resource "aws_security_group" "app" {
     ]
 
   }
- 
+
   ingress {
 
     description = "Node Exporter"
