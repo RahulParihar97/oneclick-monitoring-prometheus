@@ -485,18 +485,13 @@ stage('Ansible Connectivity Test') {
     }
 }
 
-       stage('Deployment Summary') {
-
+stage('Deployment Summary') {
     when {
-        expression {
-            params.ACTION == 'APPLY'
-        }
+        expression { params.ACTION == 'APPLY' }
     }
 
     steps {
-
         dir(env.TF_DIR) {
-
             script {
 
                 env.BASTION_IP = sh(
@@ -509,59 +504,129 @@ stage('Ansible Connectivity Test') {
                     returnStdout: true
                 ).trim()
 
-            }
+                env.APP1_IP = sh(
+                    script: 'terraform output -raw app_server_1_private_ip',
+                    returnStdout: true
+                ).trim()
 
-            sh """
-echo
-echo "========================================================================================"
-echo "                    🚀 ONE CLICK MONITORING DEPLOYMENT SUCCESSFUL 🚀"
-echo "========================================================================================"
-echo
-echo "Infrastructure Status"
-echo "---------------------"
-echo "✓ Terraform Apply          : SUCCESS"
-echo "✓ Dynamic Inventory        : SUCCESS"
-echo "✓ Ansible Configuration    : SUCCESS"
-echo "✓ Prometheus Deployment    : SUCCESS"
-echo "✓ Grafana Deployment       : SUCCESS"
-echo "✓ Nginx Reverse Proxy      : CONFIGURED"
-echo
-echo "AWS Resources"
-echo "-------------"
-echo "Bastion Public IP      : ${env.BASTION_IP}"
-echo "Monitoring Private IP  : ${env.MONITORING_IP}"
-echo
-echo "========================================================================================"
-echo "TO ACCESS PROMETHEUS & GRAFANA FROM YOUR LOCAL MACHINE"
-echo "========================================================================================"
-echo
-echo "Run the following command in a NEW terminal:"
-echo
-echo "   ssh -i ansible/ansible-demo.pem \\\\"
-echo "    -o StrictHostKeyChecking=no \\\\"
-echo "    -L 9090:${env.MONITORING_IP}:9090 \\\\"
-echo "    -L 3000:${env.MONITORING_IP}:3000 \\\\"
-echo "    ubuntu@${env.BASTION_IP}"
-echo
-echo "Keep that SSH session open."
-echo
-echo "Then open the following URLs in your browser:"
-echo
-echo "Prometheus : http://localhost:9090"
-echo "Grafana    : http://localhost:3000"
-echo
-echo "Default Grafana Credentials"
-echo "---------------------------"
-echo "Username : admin"
-echo "Password : admin"
-echo
-echo "========================================================================================"
+                env.APP2_IP = sh(
+                    script: 'terraform output -raw app_server_2_private_ip',
+                    returnStdout: true
+                ).trim()
+
+                echo """
+========================================================================================
+                    🚀 ONE CLICK MONITORING DEPLOYMENT SUCCESSFUL 🚀
+========================================================================================
+
+Infrastructure Status
+---------------------
+✓ Terraform Infrastructure      : SUCCESS
+✓ Dynamic Inventory             : SUCCESS
+✓ Ansible Configuration         : SUCCESS
+✓ Prometheus                    : DEPLOYED
+✓ Grafana                       : DEPLOYED
+✓ Alertmanager                  : DEPLOYED
+✓ Node Exporter                 : DEPLOYED
+✓ Nginx Reverse Proxy           : CONFIGURED
+
+========================================================================================
+Infrastructure IP Addresses
+========================================================================================
+
+Bastion Server          : ${env.BASTION_IP}
+Monitoring Server       : ${env.MONITORING_IP}
+Application Server 1    : ${env.APP1_IP}
+Application Server 2    : ${env.APP2_IP}
+
+========================================================================================
+SSH Tunnel (Run on your LOCAL machine)
+========================================================================================
+
+ssh -i ansible/ansible-demo.pem \\
+    -o StrictHostKeyChecking=no \\
+    -L 9090:${env.MONITORING_IP}:9090 \\
+    -L 3000:${env.MONITORING_IP}:3000 \\
+    -L 9093:${env.MONITORING_IP}:9093 \\
+    ubuntu@${env.BASTION_IP}
+
+Keep this SSH session OPEN.
+
+========================================================================================
+Monitoring URLs
+========================================================================================
+
+Prometheus      : http://localhost:9090
+Grafana         : http://localhost:3000
+Alertmanager    : http://localhost:9093
+
+========================================================================================
+Grafana Login
+========================================================================================
+
+Username : admin
+Password : admin
+
+========================================================================================
+Verification URLs
+========================================================================================
+
+Targets
+http://localhost:9090/targets
+
+Alerts
+http://localhost:9090/alerts
+
+Alertmanager
+http://localhost:9093
+
+========================================================================================
+Demo Commands
+========================================================================================
+
+SSH to Monitoring Server
+
+ssh -i ansible/ansible-demo.pem \\
+    -J ubuntu@${env.BASTION_IP} \\
+    ubuntu@${env.MONITORING_IP}
+
+SSH from Monitoring Server to App Server
+
+ssh -i ~/ansible-demo.pem ubuntu@${env.APP1_IP}
+
+or
+
+ssh -i ~/ansible-demo.pem ubuntu@${env.APP2_IP}
+
+Trigger Alert
+
+sudo systemctl stop node_exporter
+
+Recover
+
+sudo systemctl start node_exporter
+
+========================================================================================
+Project Stack
+========================================================================================
+
+• AWS EC2
+• Terraform
+• Jenkins
+• Ansible
+• Dynamic AWS Inventory
+• Prometheus
+• Grafana
+• Alertmanager
+• Node Exporter
+• EC2 Service Discovery
+• Nginx Reverse Proxy
+
+========================================================================================
 """
-
+            }
         }
-
     }
-
-}
+}     
     }
 }
