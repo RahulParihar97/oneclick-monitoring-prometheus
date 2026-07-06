@@ -11,7 +11,7 @@ http_port = 3000
 
 domain = {{ hostvars['bastion-server'].ansible_host }}
 
-root_url = http://{{ hostvars['bastion-server'].ansible_host }}/grafana/
+root_url = http://localhost:3000/
 
 serve_from_sub_path = true
 
