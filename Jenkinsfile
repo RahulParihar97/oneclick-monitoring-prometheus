@@ -326,6 +326,8 @@ Host *
                 echo " RUNNING PLAYBOOK"
                 echo "=============================================="
 
+                ansible all -m wait_for_connection -a "timeout=300"
+
                 ansible-playbook playbooks/site.yml
                 '''
 
