@@ -191,7 +191,7 @@ module "ec2" {
 
       security_group_id = module.security_group.monitoring_sg_id
 
-      associate_public_ip = false
+      associate_public_ip = true
 
       tags = {
 
