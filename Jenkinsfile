@@ -483,6 +483,32 @@ stage('Copy PEM to Bastion & Monitoring') {
         }
     }
 }
+stage('Start SSH Tunnel') {
+    when {
+        expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
+    }
+
+    steps {
+        script {
+            sh """
+                pkill -f "ssh.*-L 9090:${env.MONITORING_IP}:9090" || true
+
+                nohup ssh \
+                  -i ansible/ansible-demo.pem \
+                  -o StrictHostKeyChecking=no \
+                  -o ExitOnForwardFailure=yes \
+                  -N \
+                  -L 9090:${env.MONITORING_IP}:9090 \
+                  -L 3000:${env.MONITORING_IP}:3000 \
+                  -L 9093:${env.MONITORING_IP}:9093 \
+                  ubuntu@${env.BASTION_IP} \
+                  >/tmp/ssh-tunnel.log 2>&1 &
+            """
+
+            sleep 5
+        }
+    }
+}
 
 stage('Deployment Summary') {
     when {
