@@ -158,6 +158,13 @@ stage('Wait for EC2 Health') {
                             script: 'terraform output -raw bastion_public_ip',
                             returnStdout: true
                         ).trim()
+                         env.MONITORING_IP = sh(
+                            script: "terraform output -raw monitoring_private_ip",
+                            returnStdout: true
+                        ).trim()
+
+echo "Bastion IP   : ${env.BASTION_IP}"
+echo "Monitoring IP: ${env.MONITORING_IP}"   
                     }
 
                     echo "Bastion IP: ${env.BASTION_IP}"
@@ -483,6 +490,24 @@ stage('Copy PEM to Bastion & Monitoring') {
         }
     }
 }
+dir(env.TF_DIR) {
+    script {
+        sh "terraform output"
+
+        env.BASTION_IP = sh(
+            script: "terraform output -raw bastion_public_ip",
+            returnStdout: true
+        ).trim()
+
+        env.MONITORING_IP = sh(
+            script: "terraform output -raw monitoring_private_ip",
+            returnStdout: true
+        ).trim()
+
+        echo "Bastion   = ${env.BASTION_IP}"
+        echo "Monitoring = ${env.MONITORING_IP}"
+    }
+}        
 stage('Start SSH Tunnel') {
     when {
         expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
