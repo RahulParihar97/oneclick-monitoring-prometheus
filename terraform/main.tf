@@ -187,7 +187,7 @@ module "ec2" {
 
       instance_type = "t3.micro"
 
-      subnet_id = module.subnet.subnet_ids["private-a"]
+      subnet_id = module.subnet.subnet_ids["public-a"]
 
       security_group_id = module.security_group.monitoring_sg_id
 
