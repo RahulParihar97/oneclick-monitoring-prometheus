@@ -7,9 +7,9 @@ resource "aws_security_group" "bastion" {
   ingress {
     description = "SSH"
 
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
+    from_port = 22
+    to_port   = 22
+    protocol  = "tcp"
 
     cidr_blocks = [var.my_ip]
   }
@@ -17,18 +17,18 @@ resource "aws_security_group" "bastion" {
   ingress {
     description = "HTTP"
 
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
+    from_port = 80
+    to_port   = 80
+    protocol  = "tcp"
 
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
 
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
 
     cidr_blocks = ["0.0.0.0/0"]
 
@@ -51,9 +51,9 @@ resource "aws_security_group" "app" {
 
     description = "SSH from Bastion"
 
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
+    from_port = 22
+    to_port   = 22
+    protocol  = "tcp"
 
     security_groups = [
       aws_security_group.bastion.id
@@ -65,9 +65,9 @@ resource "aws_security_group" "app" {
 
     description = "SSH from Monitoring"
 
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
+    from_port = 22
+    to_port   = 22
+    protocol  = "tcp"
 
     security_groups = [
       aws_security_group.monitoring.id
@@ -79,9 +79,9 @@ resource "aws_security_group" "app" {
 
     description = "Node Exporter"
 
-    from_port   = 9100
-    to_port     = 9100
-    protocol    = "tcp"
+    from_port = 9100
+    to_port   = 9100
+    protocol  = "tcp"
 
     security_groups = [
       aws_security_group.monitoring.id
@@ -91,9 +91,9 @@ resource "aws_security_group" "app" {
 
   egress {
 
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
 
     cidr_blocks = ["0.0.0.0/0"]
 
@@ -120,9 +120,9 @@ resource "aws_security_group" "monitoring" {
 
     description = "SSH from Bastion"
 
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
+    from_port = 22
+    to_port   = 22
+    protocol  = "tcp"
 
     security_groups = [
       aws_security_group.bastion.id
@@ -138,9 +138,9 @@ resource "aws_security_group" "monitoring" {
 
     description = "Prometheus"
 
-    from_port   = 9090
-    to_port     = 9090
-    protocol    = "tcp"
+    from_port = 9090
+    to_port   = 9090
+    protocol  = "tcp"
 
     cidr_blocks = ["0.0.0.0/0"]
 
@@ -154,9 +154,9 @@ resource "aws_security_group" "monitoring" {
 
     description = "Grafana"
 
-    from_port   = 3000
-    to_port     = 3000
-    protocol    = "tcp"
+    from_port = 3000
+    to_port   = 3000
+    protocol  = "tcp"
 
     cidr_blocks = ["0.0.0.0/0"]
 
@@ -164,9 +164,9 @@ resource "aws_security_group" "monitoring" {
 
   egress {
 
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
 
     cidr_blocks = ["0.0.0.0/0"]
 
