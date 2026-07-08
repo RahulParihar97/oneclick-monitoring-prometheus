@@ -4,6 +4,10 @@ groups:
 
   rules:
 
+  #############################################################
+  # Node Down
+  #############################################################
+
   - alert: NodeDown
     expr: up == 0
     for: 1m
@@ -13,4 +17,52 @@ groups:
 
     annotations:
       summary: "Node Down"
-      description: "{{ "{{" }} $labels.instance {{ "}}" }} is unreachable."
+      description: "{{ '{{' }} $labels.instance {{ '}}' }} is unreachable."
+
+  #############################################################
+  # High CPU Usage
+  #############################################################
+
+  - alert: HighCPUUsage
+    expr: |
+      (
+        100 -
+        (
+          avg by(instance)
+          (
+            rate(node_cpu_seconds_total{mode="idle"}[2m])
+          ) * 100
+        )
+      ) > 80
+    for: 2m
+
+    labels:
+      severity: warning
+
+    annotations:
+      summary: "High CPU Usage"
+      description: "CPU usage on {{ '{{' }} $labels.instance {{ '}}' }} is above 80%."
+
+  #############################################################
+  # High Memory Usage
+  #############################################################
+
+  - alert: HighMemoryUsage
+    expr: |
+      (
+        (
+          node_memory_MemTotal_bytes -
+          node_memory_MemAvailable_bytes
+        )
+        /
+        node_memory_MemTotal_bytes
+      ) * 100 > 80
+
+    for: 2m
+
+    labels:
+      severity: warning
+
+    annotations:
+      summary: "High Memory Usage"
+      description: "Memory usage on {{ '{{' }} $labels.instance {{ '}}' }} is above 80%."
