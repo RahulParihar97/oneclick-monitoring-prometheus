@@ -4,7 +4,12 @@ resource "aws_security_group" "bastion" {
   description = "Bastion Security Group"
   vpc_id      = var.vpc_id
 
+  ####################################################
+  # SSH
+  ####################################################
+
   ingress {
+
     description = "SSH"
 
     from_port = 22
@@ -12,9 +17,15 @@ resource "aws_security_group" "bastion" {
     protocol  = "tcp"
 
     cidr_blocks = [var.my_ip]
+
   }
 
+  ####################################################
+  # HTTP
+  ####################################################
+
   ingress {
+
     description = "HTTP"
 
     from_port = 80
@@ -22,7 +33,10 @@ resource "aws_security_group" "bastion" {
     protocol  = "tcp"
 
     cidr_blocks = ["0.0.0.0/0"]
+
   }
+
+  ####################################################
 
   egress {
 
@@ -47,19 +61,9 @@ resource "aws_security_group" "app" {
   name   = "app-sg"
   vpc_id = var.vpc_id
 
-  ingress {
-
-    description = "SSH from Bastion"
-
-    from_port = 22
-    to_port   = 22
-    protocol  = "tcp"
-
-    security_groups = [
-      aws_security_group.bastion.id
-    ]
-
-  }
+  ####################################################
+  # SSH from Monitoring
+  ####################################################
 
   ingress {
 
@@ -75,6 +79,10 @@ resource "aws_security_group" "app" {
 
   }
 
+  ####################################################
+  # Node Exporter
+  ####################################################
+
   ingress {
 
     description = "Node Exporter"
@@ -88,6 +96,8 @@ resource "aws_security_group" "app" {
     ]
 
   }
+
+  ####################################################
 
   egress {
 
@@ -113,25 +123,23 @@ resource "aws_security_group" "monitoring" {
   vpc_id = var.vpc_id
 
   ####################################################
-  # SSH from Bastion
+  # SSH
   ####################################################
 
   ingress {
 
-    description = "SSH from Bastion"
+    description = "SSH"
 
     from_port = 22
     to_port   = 22
     protocol  = "tcp"
 
-    security_groups = [
-      aws_security_group.bastion.id
-    ]
+    cidr_blocks = [var.my_ip]
 
   }
 
   ####################################################
-  # Prometheus (Public for Demo)
+  # Prometheus
   ####################################################
 
   ingress {
@@ -147,7 +155,7 @@ resource "aws_security_group" "monitoring" {
   }
 
   ####################################################
-  # Grafana (Public for Demo)
+  # Grafana
   ####################################################
 
   ingress {
@@ -161,6 +169,24 @@ resource "aws_security_group" "monitoring" {
     cidr_blocks = ["0.0.0.0/0"]
 
   }
+
+  ####################################################
+  # Alertmanager
+  ####################################################
+
+  ingress {
+
+    description = "Alertmanager"
+
+    from_port = 9093
+    to_port   = 9093
+    protocol  = "tcp"
+
+    cidr_blocks = ["0.0.0.0/0"]
+
+  }
+
+  ####################################################
 
   egress {
 
