@@ -132,13 +132,13 @@ pipeline {
                             returnStdout: true
                         ).trim()
 
-                        env.MONITORING_IP = sh(
-                            script: 'terraform output -raw monitoring_private_ip',
+                        env.MONITORING_PUBLIC_IP = sh(
+                            script: 'terraform output -raw monitoring_public_ip',
                             returnStdout: true
                         ).trim()
 
-                        echo "Bastion IP   : ${env.BASTION_IP}"
-                        echo "Monitoring IP: ${env.MONITORING_IP}"
+                        echo "Bastion IP              : ${env.BASTION_IP}"
+                        echo "Monitoring Public IP    : ${env.MONITORING_PUBLIC_IP}"
 
                         sh '''
                             echo "=============================================="
@@ -421,69 +421,28 @@ Infrastructure Status
 ✓ Grafana                       : DEPLOYED
 ✓ Alertmanager                  : DEPLOYED
 ✓ Node Exporter                 : DEPLOYED
-✓ Nginx Reverse Proxy           : CONFIGURED
 
 ========================================================================================
 Infrastructure IP Addresses
 ========================================================================================
 
 Bastion Server          : ${env.BASTION_IP}
-Monitoring Server       : ${env.MONITORING_IP}
+Monitoring Server       : ${env.MONITORING_PUBLIC_IP}
 Application Server 1    : ${env.APP1_IP}
 Application Server 2    : ${env.APP2_IP}
-
-========================================================================================
-SSH Tunnel (Run on your LOCAL machine)
-========================================================================================
-
-ssh -i ansible/ansible-demo.pem \\
-    -o StrictHostKeyChecking=no \\
-    -L 9090:${env.MONITORING_IP}:9090 \\
-    -L 3000:${env.MONITORING_IP}:3000 \\
-    -L 9093:${env.MONITORING_IP}:9093 \\
-    ubuntu@${env.BASTION_IP}
-
-Keep this SSH session OPEN.
-
-========================================================================================
-Monitoring URLs
-========================================================================================
-
-Prometheus      : http://localhost:9090
-Grafana         : http://localhost:3000
-Alertmanager    : http://localhost:9093
-
-========================================================================================
-Grafana Login
-========================================================================================
-
-Username : admin
-Password : admin
-
-========================================================================================
-Verification URLs
-========================================================================================
-
-Targets
-http://localhost:9090/targets
-
-Alerts
-http://localhost:9090/alerts
-
-Alertmanager
-http://localhost:9093
 
 ========================================================================================
 Demo Commands
 ========================================================================================
 
-SSH to Monitoring Server
+SSH to Monitoring Server ------->
 
 ssh -i ansible/ansible-demo.pem \\
-    -J ubuntu@${env.BASTION_IP} \\
-    ubuntu@${env.MONITORING_IP}
+    ubuntu@${env.MONITORING_PUBLIC_IP}
 
-SSH from Monitoring Server to App Server
+========================================================================================    
+
+SSH from Monitoring Server to App Server ------>
 
 ssh -i ~/ansible-demo.pem ubuntu@${env.APP1_IP}
 
@@ -491,7 +450,9 @@ or
 
 ssh -i ~/ansible-demo.pem ubuntu@${env.APP2_IP}
 
-Trigger Alert
+========================================================================================
+
+Trigger Alert ---->
 
 sudo systemctl stop node_exporter
 
@@ -513,7 +474,7 @@ Project Stack
 • Alertmanager
 • Node Exporter
 • EC2 Service Discovery
-• Nginx Reverse Proxy
+
 
 ========================================================================================
 """
