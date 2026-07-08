@@ -20,136 +20,113 @@ pipeline {
     }
 
     stages {
-        stage('Checkout Source') {
+        stage('Checkout') {
             steps {
                 checkout scm
-            }
-        }
 
-        stage('Show Build Parameters') {
-            steps {
                 sh """
+                    echo "=============================================="
+                    echo " BUILD PARAMETERS"
+                    echo "=============================================="
                     echo "Action          : ${params.ACTION}"
                     echo "Auto Approve    : ${params.AUTO_APPROVE}"
                     echo "Run Ansible     : ${params.RUN_ANSIBLE}"
                 """
+
+                sh """
+                    echo "=============================================="
+                    echo " WORKSPACE VERIFICATION"
+                    echo "=============================================="
+                    pwd
+                    ls -lah
+                    tree -L 2 || true
+                """
             }
         }
 
-        stage('Verify Workspace') {
-            steps {
-                sh "pwd && ls -lah && tree -L 2 || true"
-            }
-        }
-
-        stage('Terraform Init') {
+        stage('Validate Code') {
             steps {
                 dir(env.TF_DIR) {
-                    sh "terraform init"
+                    sh """
+                        echo "=============================================="
+                        echo " TERRAFORM INIT"
+                        echo "=============================================="
+                        terraform init
+
+                        echo "=============================================="
+                        echo " TERRAFORM FORMAT CHECK"
+                        echo "=============================================="
+                        terraform fmt -check -recursive
+
+                        echo "=============================================="
+                        echo " TERRAFORM VALIDATE"
+                        echo "=============================================="
+                        terraform validate
+
+                        echo "=============================================="
+                        echo " TFLINT"
+                        echo "=============================================="
+                        tflint --init
+                        tflint
+                    """
                 }
             }
         }
 
-        stage('Terraform Format Check') {
-            steps {
-                dir(env.TF_DIR) {
-                    sh "terraform fmt -check -recursive"
-                }
-            }
-        }
-
-        stage('Terraform Validate') {
-            steps {
-                dir(env.TF_DIR) {
-                    sh "terraform validate"
-                }
-            }
-        }
-
-        stage('TFLint') {
-            steps {
-                dir(env.TF_DIR) {
-                    sh "tflint --init && tflint"
-                }
-            }
-        }
-
-        stage('Terraform Plan') {
+        stage('Plan Infrastructure') {
             when {
                 expression { params.ACTION == 'APPLY' }
             }
             steps {
                 dir(env.TF_DIR) {
-                    sh "terraform plan -out=tfplan"
+                    sh """
+                        echo "=============================================="
+                        echo " TERRAFORM PLAN"
+                        echo "=============================================="
+                        terraform plan -out=tfplan
+                    """
                 }
-            }
-        }
 
-        stage('Archive Plan') {
-            when {
-                expression { params.ACTION == 'APPLY' }
-            }
-            steps {
                 archiveArtifacts artifacts: 'terraform/tfplan'
-            }
-        }
 
-        stage('Approval') {
-            when {
-                allOf {
-                    expression { params.ACTION == 'APPLY' }
-                    expression { !params.AUTO_APPROVE }
-                }
-            }
-            steps {
-                input message: 'Proceed with Terraform Apply?', ok: 'Apply'
-            }
-        }
-
-        stage('Terraform Apply') {
-            when {
-                expression { params.ACTION == 'APPLY' }
-            }
-            steps {
-                dir(env.TF_DIR) {
-                    script {
-                        if (params.AUTO_APPROVE) {
-                            sh "terraform apply -auto-approve tfplan"
-                        } else {
-                            sh "terraform apply tfplan"
-                        }
+                script {
+                    if (!params.AUTO_APPROVE) {
+                        input message: 'Proceed with Terraform Apply?', ok: 'Apply'
                     }
                 }
             }
         }
 
-        stage('Wait for EC2 Health') {
-            when {
-                expression { params.ACTION == 'APPLY' }
-            }
-            steps {
-                dir(env.TF_DIR) {
-                    sh '''
-                        echo "Waiting for AWS EC2 Status Checks..."
-
-                        INSTANCE_IDS=$(terraform output -json instance_ids | jq -r '.[]')
-
-                        aws ec2 wait instance-status-ok \
-                            --instance-ids $INSTANCE_IDS
-
-                        echo "All EC2 instances passed AWS health checks."
-                    '''
-                }
-            }
-        }
-
-        stage('Terraform Outputs') {
+        stage('Provision Infrastructure') {
             when {
                 expression { params.ACTION == 'APPLY' }
             }
             steps {
                 script {
                     dir(env.TF_DIR) {
+                        echo "=============================================="
+                        echo " TERRAFORM APPLY"
+                        echo "=============================================="
+
+                        if (params.AUTO_APPROVE) {
+                            sh "terraform apply -auto-approve tfplan"
+                        } else {
+                            sh "terraform apply tfplan"
+                        }
+
+                        sh '''
+                            echo "=============================================="
+                            echo " WAITING FOR AWS EC2 STATUS CHECKS"
+                            echo "=============================================="
+
+                            INSTANCE_IDS=$(terraform output -json instance_ids | jq -r '.[]')
+
+                            aws ec2 wait instance-status-ok \
+                                --instance-ids $INSTANCE_IDS
+
+                            echo "All EC2 instances passed AWS health checks."
+                        '''
+
                         env.BASTION_IP = sh(
                             script: 'terraform output -raw bastion_public_ip',
                             returnStdout: true
@@ -162,9 +139,7 @@ pipeline {
 
                         echo "Bastion IP   : ${env.BASTION_IP}"
                         echo "Monitoring IP: ${env.MONITORING_IP}"
-                    }
 
-                    dir(env.TF_DIR) {
                         sh '''
                             echo "=============================================="
                             echo " TERRAFORM OUTPUTS"
@@ -172,28 +147,11 @@ pipeline {
                             terraform output
                         '''
                     }
-                }
-            }
-        }
 
-        stage('Generate SSH Config') {
-            when {
-                expression {
-                    params.ACTION == 'APPLY' && params.RUN_ANSIBLE
-                }
-            }
-            steps {
-                script {
-                    dir(env.TF_DIR) {
-                        env.BASTION_IP = sh(
-                            script: 'terraform output -raw bastion_public_ip',
-                            returnStdout: true
-                        ).trim()
-                    }
-
-                    writeFile(
-                        file: "${env.ANSIBLE_DIR}/ssh_config",
-                        text: """
+                    if (params.RUN_ANSIBLE) {
+                        writeFile(
+                            file: "${env.ANSIBLE_DIR}/ssh_config",
+                            text: """
 Host bastion
     HostName ${env.BASTION_IP}
     User ubuntu
@@ -206,174 +164,94 @@ Host *
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
 """
-                    )
+                        )
 
-                    sh """
-                        echo "=============================================="
-                        echo "Generated SSH Config"
-                        echo "=============================================="
-                        cat ${env.ANSIBLE_DIR}/ssh_config
-                    """
+                        sh """
+                            echo "=============================================="
+                            echo " GENERATED SSH CONFIG"
+                            echo "=============================================="
+                            cat ${env.ANSIBLE_DIR}/ssh_config
+                        """
+                    }
+
+                    dir(env.TF_DIR) {
+                        sh '''
+                            echo "=============================================="
+                            echo " WAIT FOR BASTION SSH"
+                            echo "=============================================="
+
+                            BASTION_IP=$(terraform output -raw bastion_public_ip)
+
+                            for i in $(seq 1 30); do
+                                if nc -z $BASTION_IP 22; then
+                                    echo "SSH is ready."
+                                    exit 0
+                                fi
+                                echo "Attempt $i/30..."
+                                sleep 10
+                            done
+
+                            echo "ERROR : Bastion SSH not available."
+                            exit 1
+                        '''
+                    }
                 }
             }
         }
 
-        stage('Refresh Inventory') {
+        stage('Configure Servers') {
             when {
-                expression {
-                    params.ACTION == 'APPLY' && params.RUN_ANSIBLE
-                }
+                expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
             }
             steps {
-                dir(env.ANSIBLE_DIR) {
-                    sh '''
-                        ansible-inventory \
-                            -i inventories/aws_ec2.yml \
-                            --graph
-                    '''
-                }
-            }
-        }
+                script {
+                    dir(env.ANSIBLE_DIR) {
+                        sh '''
+                            echo "=============================================="
+                            echo " REFRESH INVENTORY"
+                            echo "=============================================="
+                            ansible-inventory \
+                                -i inventories/aws_ec2.yml \
+                                --graph
+                        '''
+                    }
 
-        stage('Terraform Destroy') {
-            when {
-                expression { params.ACTION == 'DESTROY' }
-            }
-            steps {
-                dir(env.TF_DIR) {
-                    script {
-                        if (params.AUTO_APPROVE) {
-                            sh "terraform destroy -auto-approve"
-                        } else {
-                            sh "terraform destroy"
+                    sshagent(credentials: [env.SSH_CREDENTIAL]) {
+                        dir(env.ANSIBLE_DIR) {
+                            sh '''
+                                ansible --version
+
+                                echo "=============================================="
+                                echo " INVENTORY"
+                                echo "=============================================="
+
+                                ansible-inventory --graph
+                                ansible-inventory --list > inventory.json
+
+                                echo "=============================================="
+                                echo " WAITING FOR SSH"
+                                echo "=============================================="
+
+                                ansible all \
+                                    -m wait_for_connection \
+                                    -a "timeout=300 sleep=5 delay=10"
+
+                                echo "=============================================="
+                                echo " TESTING SSH"
+                                echo "=============================================="
+
+                                ansible all -m ping -vvvv
+
+                                echo "=============================================="
+                                echo " RUNNING PLAYBOOK"
+                                echo "=============================================="
+
+                                ansible-playbook playbooks/site.yml
+                            '''
                         }
                     }
-                }
-            }
-        }
 
-        stage('Wait for Bastion SSH') {
-            when {
-                expression { params.ACTION == 'APPLY' }
-            }
-            steps {
-                dir(env.TF_DIR) {
-                    sh '''
-                        BASTION_IP=$(terraform output -raw bastion_public_ip)
-                        for i in $(seq 1 30); do
-                            if nc -z $BASTION_IP 22; then
-                                echo "SSH is ready."
-                                exit 0
-                            fi
-                            echo "Attempt $i/30..."
-                            sleep 10
-                        done
-                        echo "ERROR : Bastion SSH not available."
-                        exit 1
-                    '''
-                }
-            }
-        }
-
-        stage('Ansible Inventory') {
-            when {
-                expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
-            }
-            steps {
-                sshagent(credentials: [env.SSH_CREDENTIAL]) {
-                    dir(env.ANSIBLE_DIR) {
-                        sh '''
-                            ansible --version
-
-                            echo "=============================================="
-                            echo " INVENTORY"
-                            echo "=============================================="
-
-                            ansible-inventory --graph
-                            ansible-inventory --list > inventory.json
-                        '''
-                    }
-                }
-            }
-        }
-
-        stage('Ansible Connectivity Test') {
-            when {
-                expression {
-                    params.ACTION == 'APPLY' && params.RUN_ANSIBLE
-                }
-            }
-            steps {
-                sshagent(credentials: [env.SSH_CREDENTIAL]) {
-                    dir(env.ANSIBLE_DIR) {
-                        sh '''
-                            echo "=============================================="
-                            echo " WAITING FOR SSH"
-                            echo "=============================================="
-
-                            ansible all \
-                                -m wait_for_connection \
-                                -a "timeout=300 sleep=5 delay=10"
-
-                            echo "=============================================="
-                            echo " TESTING SSH"
-                            echo "=============================================="
-
-                            ansible all -m ping -vvvv
-                        '''
-                    }
-                }
-            }
-        }
-
-        stage('Configure Infrastructure') {
-            when {
-                expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
-            }
-            steps {
-                sshagent(credentials: [env.SSH_CREDENTIAL]) {
-                    dir(env.ANSIBLE_DIR) {
-                        sh '''
-                            echo "=============================================="
-                            echo " RUNNING PLAYBOOK"
-                            echo "=============================================="
-
-                            ansible-playbook playbooks/site.yml
-                        '''
-                    }
-                }
-            }
-        }
-
-        stage('Verify Services') {
-            when {
-                expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
-            }
-            steps {
-                sshagent(credentials: [env.SSH_CREDENTIAL]) {
-                    dir(env.ANSIBLE_DIR) {
-                        sh '''
-                            echo "=============================================="
-                            echo " VERIFYING SERVICES"
-                            echo "=============================================="
-
-                            ansible monitoring -m shell -a "systemctl is-active prometheus"
-                            ansible monitoring -m shell -a "systemctl is-active grafana-server"
-                            ansible node_exporter -m shell -a "systemctl is-active node_exporter"
-                            ansible bastion -m shell -a "systemctl is-active nginx"
-                        '''
-                    }
-                }
-            }
-        }
-
-        stage('Copy PEM to Bastion & Monitoring') {
-            when {
-                expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
-            }
-            steps {
-                dir(env.TF_DIR) {
-                    script {
+                    dir(env.TF_DIR) {
                         def bastion = sh(
                             script: 'terraform output -raw bastion_public_ip',
                             returnStdout: true
@@ -423,43 +301,16 @@ Host *
                                 "
                             """
                         }
-                    }
-                }
-            }
-        }
 
-        stage('Load Deployment Outputs') {
-            when {
-                expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
-            }
-            steps {
-                dir(env.TF_DIR) {
-                    script {
                         sh "terraform output"
 
-                        env.BASTION_IP = sh(
-                            script: "terraform output -raw bastion_public_ip",
-                            returnStdout: true
-                        ).trim()
+                        env.BASTION_IP = bastion
+                        env.MONITORING_IP = monitoring
 
-                        env.MONITORING_IP = sh(
-                            script: "terraform output -raw monitoring_private_ip",
-                            returnStdout: true
-                        ).trim()
-
-                        echo "Bastion   = ${env.BASTION_IP}"
+                        echo "Bastion    = ${env.BASTION_IP}"
                         echo "Monitoring = ${env.MONITORING_IP}"
                     }
-                }
-            }
-        }
 
-        stage('Start SSH Tunnel') {
-            when {
-                expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
-            }
-            steps {
-                script {
                     sh """
                         pkill -f "ssh.*-L 9090:${env.MONITORING_IP}:9090" || true
 
@@ -480,34 +331,83 @@ Host *
             }
         }
 
-        stage('Deployment Summary') {
+        stage('Verify Deployment') {
             when {
-                expression { params.ACTION == 'APPLY' }
+                expression { params.ACTION == 'APPLY' && params.RUN_ANSIBLE }
+            }
+            steps {
+                sshagent(credentials: [env.SSH_CREDENTIAL]) {
+                    dir(env.ANSIBLE_DIR) {
+                        sh '''
+                            echo "=============================================="
+                            echo " VERIFYING SERVICES"
+                            echo "=============================================="
+
+                            ansible monitoring -m shell -a "systemctl is-active prometheus"
+                            ansible monitoring -m shell -a "systemctl is-active grafana-server"
+                            ansible node_exporter -m shell -a "systemctl is-active node_exporter"
+                            ansible bastion -m shell -a "systemctl is-active nginx"
+
+                            echo "=============================================="
+                            echo " VERIFYING ENDPOINTS"
+                            echo "=============================================="
+
+                            curl -I http://localhost:9090 || true
+                            curl -I http://localhost:3000 || true
+                            curl -I http://localhost:9093 || true
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Destroy Infrastructure') {
+            when {
+                expression { params.ACTION == 'DESTROY' }
             }
             steps {
                 dir(env.TF_DIR) {
                     script {
-                        env.BASTION_IP = sh(
-                            script: 'terraform output -raw bastion_public_ip',
-                            returnStdout: true
-                        ).trim()
+                        echo "=============================================="
+                        echo " TERRAFORM DESTROY"
+                        echo "=============================================="
 
-                        env.MONITORING_IP = sh(
-                            script: 'terraform output -raw monitoring_private_ip',
-                            returnStdout: true
-                        ).trim()
+                        if (params.AUTO_APPROVE) {
+                            sh "terraform destroy -auto-approve"
+                        } else {
+                            sh "terraform destroy"
+                        }
+                    }
+                }
+            }
+        }
 
-                        env.APP1_IP = sh(
-                            script: 'terraform output -raw app_server_1_private_ip',
-                            returnStdout: true
-                        ).trim()
+        stage('Deployment Summary') {
+            steps {
+                script {
+                    if (params.ACTION == 'APPLY') {
+                        dir(env.TF_DIR) {
+                            env.BASTION_IP = sh(
+                                script: 'terraform output -raw bastion_public_ip',
+                                returnStdout: true
+                            ).trim()
 
-                        env.APP2_IP = sh(
-                            script: 'terraform output -raw app_server_2_private_ip',
-                            returnStdout: true
-                        ).trim()
+                            env.MONITORING_IP = sh(
+                                script: 'terraform output -raw monitoring_private_ip',
+                                returnStdout: true
+                            ).trim()
 
-                        echo """
+                            env.APP1_IP = sh(
+                                script: 'terraform output -raw app_server_1_private_ip',
+                                returnStdout: true
+                            ).trim()
+
+                            env.APP2_IP = sh(
+                                script: 'terraform output -raw app_server_2_private_ip',
+                                returnStdout: true
+                            ).trim()
+
+                            echo """
 ========================================================================================
                     🚀 ONE CLICK MONITORING DEPLOYMENT SUCCESSFUL 🚀
 ========================================================================================
@@ -614,6 +514,30 @@ Project Stack
 • Node Exporter
 • EC2 Service Discovery
 • Nginx Reverse Proxy
+
+========================================================================================
+"""
+                        }
+                    } else if (params.ACTION == 'DESTROY') {
+                        echo """
+========================================================================================
+                    🧹 INFRASTRUCTURE DESTROY COMPLETED
+========================================================================================
+
+Infrastructure Status
+---------------------
+✓ Terraform Destroy            : SUCCESS
+✓ Ansible Execution            : SKIPPED
+✓ Provisioned Resources        : REMOVED
+
+========================================================================================
+Workflow
+========================================================================================
+
+Checkout
+Validate Code
+Destroy Infrastructure
+Deployment Summary
 
 ========================================================================================
 """
