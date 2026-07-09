@@ -11,8 +11,9 @@ hostnames:
 
 compose:
   ansible_host: >
-    public_ip_address if tags.Role == 'bastion'
+    public_ip_address if tags.Role in ['bastion', 'monitoring']
     else private_ip_address
+
   ansible_user: "'ubuntu'"
 
 groups:

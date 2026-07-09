@@ -64,10 +64,10 @@
     mode: "0644"
   notify: restart grafana
 
-- name: Copy Node Exporter Dashboard
+- name: Copy Infrastructure Dashboard
   copy:
-    src: node-exporter-full.json
-    dest: /var/lib/grafana/dashboards/node-exporter-full.json
+    src: infrastructure-monitoring-dashboard.json
+    dest: /var/lib/grafana/dashboards/infrastructure-monitoring-dashboard.json
     owner: grafana
     group: grafana
     mode: "0644"

@@ -1,0 +1,122 @@
+{
+  "title": "Infrastructure Monitoring",
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "editable": true,
+  "templating": {
+    "list": [
+      {
+        "name": "instance",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(up,instance)",
+        "includeAll": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Node Status",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "up{instance=~'$instance'}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "gauge",
+      "title": "CPU Usage %",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "100-(avg by(instance)(rate(node_cpu_seconds_total{mode='idle',instance=~'$instance'}[2m]))*100)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "gauge",
+      "title": "Memory Usage %",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "((node_memory_MemTotal_bytes{instance=~'$instance'}-node_memory_MemAvailable_bytes{instance=~'$instance'})/node_memory_MemTotal_bytes{instance=~'$instance'})*100",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "gauge",
+      "title": "Disk Usage %",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "100*(1-(node_filesystem_avail_bytes{mountpoint='/',fstype!='tmpfs',instance=~'$instance'}/node_filesystem_size_bytes{mountpoint='/',fstype!='tmpfs',instance=~'$instance'}))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "CPU Usage History",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "targets": [
+        {
+          "expr": "100-(avg by(instance)(rate(node_cpu_seconds_total{mode='idle',instance=~'$instance'}[2m]))*100)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Memory Usage History",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "targets": [
+        {
+          "expr": "((node_memory_MemTotal_bytes{instance=~'$instance'}-node_memory_MemAvailable_bytes{instance=~'$instance'})/node_memory_MemTotal_bytes{instance=~'$instance'})*100",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}
